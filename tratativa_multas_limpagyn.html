@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LimpaGyn · Tratativa de Multas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#0F2A4A; --navy2:#153A63; --gold:#F2B705;
+    --blue:#1D4ED8; --green:#16A34A; --orange:#F97316; --red:#DC2626;
+    --ink:#1F2937; --ink-soft:#5B6472; --ink-faint:#9AA2AC;
+    --bg:#EFF2F5; --card:#FFFFFF; --border:#E1E6EB; --info-bg:#E7F0FC;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:#000; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:var(--ink); padding:28px 14px; }
+  .stage-label{ max-width:1600px; margin:0 auto 10px; color:#5C6265; font-size:12.5px; }
+
+  .stage{ width:100%; max-width:1600px; margin:0 auto; aspect-ratio:16/9; position:relative; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.5); }
+  .canvas{ width:1600px; height:900px; position:absolute; top:0; left:0; transform-origin:top left; background:var(--bg); display:flex; flex-direction:column; }
+
+  /* header */
+  .hdr{ background:linear-gradient(90deg, var(--navy), var(--navy2)); padding:18px 28px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .hdr-left{ display:flex; align-items:center; gap:14px; }
+  .hdr-icon{ width:46px; height:46px; border-radius:8px; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; }
+  .hdr-icon svg{ width:24px; height:24px; }
+  .hdr-title{ font-size:26px; font-weight:800; color:#fff; letter-spacing:0.01em; }
+  .hdr-sub{ font-size:13.5px; font-weight:700; color:var(--gold); margin-top:3px; letter-spacing:0.03em; }
+  .hdr-right{ display:flex; gap:10px; }
+  .hdr-box{ background:rgba(255,255,255,0.08); border-radius:6px; padding:8px 16px; display:flex; align-items:center; gap:10px; }
+  .hdr-box svg{ width:20px; height:20px; flex-shrink:0; }
+  .hdr-box .lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:#C9D6E5; font-weight:700; }
+  .hdr-box .val{ font-size:13.5px; font-weight:800; color:#fff; margin-top:1px; }
+  .btn-upload{ font-family:inherit; font-size:12.5px; font-weight:700; padding:0 18px; border-radius:6px; border:none; background:var(--gold); color:#1F2937; cursor:pointer; }
+  .btn-upload:hover{ filter:brightness(0.95); }
+  .status-msg{ position:absolute; top:74px; right:28px; max-width:440px; font-size:12px; padding:9px 16px; border-radius:6px; display:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); z-index:5; }
+  .status-msg.show{ display:block; }
+  .status-msg.ok{ background:#E7F7EE; color:#166534; border:1px solid #BBEBCE; }
+  .status-msg.err{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+
+  .content{ flex:1; min-height:0; padding:16px 28px; display:grid; grid-template-rows:32px 80px 272px 172px 72px; gap:10px; }
+
+  /* month tabs */
+  .month-tabs{ display:flex; align-items:center; gap:8px; }
+  .month-tabs .lbl{ font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; margin-right:4px; }
+  .month-btn{ font-family:inherit; font-size:12.5px; font-weight:600; padding:6px 16px; border-radius:14px; border:1px solid var(--border); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .month-btn.active{ background:var(--navy); border-color:var(--navy); color:#fff; font-weight:700; }
+
+  /* kpi row */
+  .kpi-row{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .kpi-icon{ width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .kpi-icon svg{ width:20px; height:20px; }
+  .kpi-txt .lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-soft); font-weight:700; line-height:1.3; }
+  .kpi-txt .val{ font-size:20px; font-weight:800; color:var(--ink); margin-top:2px; }
+
+  .row3{ display:grid; grid-template-columns:0.9fr 0.85fr 1.25fr; gap:12px; min-height:0; }
+  .tile{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px 10px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .tile h4{ margin:0 0 8px; font-size:11.5px; font-weight:800; letter-spacing:0.04em; color:var(--ink); text-transform:uppercase; }
+  .tile-body{ flex:1; min-height:0; overflow:hidden; }
+  .tile-note{ font-size:9.5px; color:var(--ink-faint); margin-top:4px; }
+
+  table.vt{ width:100%; border-collapse:collapse; font-size:11px; }
+  table.vt th{ background:var(--navy); color:#fff; text-align:left; padding:4px 10px; font-size:9.5px; text-transform:uppercase; }
+  table.vt td{ padding:4px 10px; border-bottom:1px solid var(--border); }
+  table.vt tr.total td{ background:var(--blue); color:#fff; font-weight:800; }
+  table.vt td.num{ text-align:right; }
+
+  .info-band{ background:var(--info-bg); border:1px solid #C9DEF5; border-radius:8px; padding:12px 20px; display:flex; align-items:center; gap:22px; }
+  .info-band .ic{ width:34px; height:34px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .info-band .ic svg{ width:18px; height:18px; }
+  .info-band .txt{ font-size:12px; color:var(--ink); flex:1; }
+  .info-band .stat{ text-align:center; }
+  .info-band .stat .l{ font-size:10px; text-transform:uppercase; color:var(--ink-soft); font-weight:700; }
+  .info-band .stat .v{ font-size:17px; font-weight:800; color:var(--ink); margin-top:2px; }
+  .info-band .stat .v.green{ color:var(--green); }
+
+  svg text{ font-family:'Segoe UI', Tahoma, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="stage-label">LimpaGyn · Tratativa de Multas — réplica com dados reais · 1600×900 (16:9)</div>
+
+<div class="stage"><div class="canvas">
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#F2B705" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13v4M12 15v2M15 11v6"/></svg>
+      </div>
+      <div>
+        <div class="hdr-title">TRATATIVA DE MULTAS</div>
+        <div class="hdr-sub" id="hdr-sub">MÊS DE REFERÊNCIA: JUNHO/2026</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div style="text-align:right; margin-right:4px;">
+        <div class="lbl" id="fonteLbl" style="color:#C9D6E5;">Fonte: dados de exemplo</div>
+        <button class="btn-upload" id="btnRefresh" style="margin-top:4px;">Atualizar agora</button>
+      </div>
+      <div class="hdr-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <div><div class="lbl">Mês de Referência</div><div class="val" id="box-mes">Junho/2026</div></div>
+      </div>
+      <div class="hdr-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <div><div class="lbl">Data da Extração</div><div class="val" id="box-extracao">27/07/2026</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="content">
+
+    <div class="month-tabs" id="monthTabs">
+      <span class="lbl">Mês de referência</span>
+    </div>
+    <div id="valorFilterChip" style="display:none; margin-top:-4px;">
+      <span style="font-size:11.5px; color:var(--ink-soft);">Filtrando por valor: </span>
+      <span id="valorFilterTxt" style="font-size:12px; font-weight:800; color:var(--navy);"></span>
+      <span onclick="setValorFilter(null)" style="cursor:pointer; color:var(--red); font-weight:800; font-size:12px; margin-left:6px; text-decoration:underline;">limpar</span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--blue)" id="ic-car"></div><div class="kpi-txt"><div class="lbl">Total de Multas</div><div class="val" id="k-total">27</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--green)" id="ic-dollar"></div><div class="kpi-txt"><div class="lbl">Valor Total Enviado ao DP (R$)</div><div class="val" id="k-valor">6.513,89</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--blue)" id="ic-bars"></div><div class="kpi-txt"><div class="lbl">Valor Médio (R$)</div><div class="val" id="k-media">241,26</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--red)" id="ic-up"></div><div class="kpi-txt"><div class="lbl">Maior Valor (R$)</div><div class="val" id="k-maior">880,41</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--gold)" id="ic-down"></div><div class="kpi-txt"><div class="lbl">Menor Valor (R$)</div><div class="val" id="k-menor">130,16</div></div></div>
+    </div>
+
+    <div class="row3">
+      <div class="tile">
+        <h4>Valores Enviados ao DP</h4>
+        <div class="tile-body" id="tbl-valores"></div>
+      </div>
+      <div class="tile">
+        <h4>Distribuição dos Valores (R$)</h4>
+        <div class="tile-body" id="c-donut-valores"></div>
+      </div>
+      <div class="tile">
+        <h4>Evolução Diária — Qtd. de Multas Enviadas ao DP</h4>
+        <div class="tile-body" id="c-area-diario"></div>
+        <div class="tile-note" id="nota-diario"></div>
+      </div>
+    </div>
+
+    <div class="tile">
+      <h4>Detalhamento dos Valores Enviados ao DP</h4>
+      <div class="tile-body" id="c-hbar-detalhe"></div>
+    </div>
+
+    <div class="info-band">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg></div>
+      <div class="txt">Foram enviados ao Departamento Pessoal (DP) apenas os valores das multas.</div>
+      <div class="stat"><div class="l">Total de multas enviadas</div><div class="v" id="f-total">27</div></div>
+      <div class="stat"><div class="l">Valor total enviado (R$)</div><div class="v green" id="f-valor">6.513,89</div></div>
+    </div>
+
+  </div>
+
+</div></div>
+
+<script>
+function scaleStage(){
+  const stage=document.querySelector('.stage'), canvas=document.querySelector('.canvas');
+  canvas.style.transform=`scale(${stage.clientWidth/1600})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+
+document.getElementById('ic-car').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM19 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17l1.5-5.5A2 2 0 0 1 6.4 10h11.2a2 2 0 0 1 1.9 1.5L21 17"/></svg>`;
+document.getElementById('ic-dollar').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+document.getElementById('ic-bars').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`;
+document.getElementById('ic-up').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>`;
+document.getElementById('ic-down').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 7l6 6 4-4 8 9"/><path d="M15 18h6v-6"/></svg>`;
+
+function fmtBRLnum(v){ return v.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtInt(v){ return v.toLocaleString('pt-BR'); }
+
+const MES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const VALOR_COLORS = ['#1D4ED8','#16A34A','#F97316','#DC2626','#9333EA','#0D9488','#EA580C','#0EA5E9'];
+
+/* ---------------- DADOS DE EXEMPLO (linha a linha sintetizada a partir dos totais reais e validados) ---------------- */
+const MUL_MES_EXEMPLO = {
+  'Março': { total:1, valor:293.47, ano:2026, dist:{'293,47':1}, diario:{'25/03':1}, fora:0 },
+  'Abril': { total:10, valor:1986.74, ano:2026, dist:{'130,16':4,'195,23':3,'293,47':3}, diario:{'14/04':2,'15/04':2,'26/04':1,'28/04':2,'29/04':2}, fora:1 },
+  'Maio': { total:23, valor:4729.66, ano:2026, dist:{'104,13':1,'130,16':10,'195,23':3,'293,47':8,'390,48':1}, diario:{'01/05':1,'08/05':1,'09/05':1,'10/05':1,'14/05':3,'16/05':1,'17/05':1,'19/05':1,'20/05':2,'22/05':2,'23/05':1,'24/05':1,'25/05':1,'27/05':2,'29/05':1,'30/05':1,'31/05':2}, fora:0 },
+  'Junho': { total:27, valor:6513.89, ano:2026, dist:{'130,16':11,'195,23':5,'293,47':7,'390,32':1,'390,48':2,'880,41':1}, diario:{'08/06':1,'13/06':1,'14/06':2,'16/06':2,'18/06':1,'19/06':2,'20/06':1,'21/06':2,'24/06':1,'26/06':1,'28/06':1,'29/06':1,'30/06':1}, fora:10 },
+};
+function synthesizeDemoRows(){
+  const rows = [];
+  Object.keys(MUL_MES_EXEMPLO).forEach(m=>{
+    const d = MUL_MES_EXEMPLO[m];
+    const diasNoMes = Object.keys(d.diario);
+    let diaIdx = 0;
+    Object.keys(d.dist).forEach(valorStr=>{
+      const valor = parseFloat(valorStr.replace(/\./g,'').replace(',','.'));
+      for(let i=0;i<d.dist[valorStr]; i++){
+        const dia = diasNoMes.length ? diasNoMes[diaIdx % diasNoMes.length] : null;
+        diaIdx++;
+        rows.push({ mes:m, ano:d.ano, valor, dia, foraDoMes:false });
+      }
+    });
+    for(let i=0;i<d.fora;i++) rows.push({ mes:m, ano:d.ano, valor:d.valor/d.total, dia:null, foraDoMes:true });
+  });
+  return rows;
+}
+
+let RAW_ROWS = synthesizeDemoRows();
+let MESES_ORDEM = Object.keys(MUL_MES_EXEMPLO);
+let FILTERS = { mes: 'Junho', valor: null };
+
+/* ---------------- MOTOR DE FILTROS ---------------- */
+function filteredRows(opts){
+  opts = opts || {};
+  return RAW_ROWS.filter(r=>
+    (opts.skipMes || FILTERS.mes==='Todos' || r.mes===FILTERS.mes) &&
+    (opts.skipValor || !FILTERS.valor || fmtBRLnum(r.valor)===FILTERS.valor)
+  );
+}
+function computeView(){
+  const rows = filteredRows({});
+  const rowsMes = filteredRows({skipValor:true});
+
+  const total = rows.length;
+  const valor = rows.reduce((s,r)=>s+r.valor,0);
+  const media = total ? valor/total : 0;
+  const valoresArr = rows.map(r=>r.valor);
+  const maior = valoresArr.length ? Math.max(...valoresArr) : 0;
+  const menor = valoresArr.length ? Math.min(...valoresArr) : 0;
+
+  const dist = {};
+  rowsMes.forEach(r=>{ const k=fmtBRLnum(r.valor); dist[k]=(dist[k]||0)+1; });
+
+  const diario = {};
+  let foraCount = 0;
+  rows.forEach(r=>{
+    if(r.foraDoMes){ foraCount++; return; }
+    if(r.dia) diario[r.dia] = (diario[r.dia]||0)+1;
+  });
+
+  return { total, valor, media, maior, menor, dist, diario, fora:foraCount, totalFiltrado: rows.length };
+}
+
+function setValorFilter(valorKey){
+  FILTERS.valor = (FILTERS.valor===valorKey) ? null : valorKey;
+  renderMultas();
+}
+
+/* ---------------- LEITURA DE PLANILHA ---------------- */
+function getKey(row, wantedLower){ for(const k in row){ if(k.trim().toLowerCase()===wantedLower) return k; } return null; }
+function getVal(row, wantedLower){ const k=getKey(row,wantedLower); return k===null ? null : row[k]; }
+function parseNumberBR(v){
+  if(v==null || v==='') return 0;
+  if(typeof v==='number') return v;
+  let s=v.toString().trim(); if(s==='') return 0;
+  s = s.replace(/[^\d,.\-]/g, '');
+  if(s==='') return 0;
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',', '.');
+  else if(lastDot > lastComma) s = s.replace(/,/g,'');
+  const n=parseFloat(s); return isNaN(n) ? 0 : n;
+}
+function parseDateFlexible(v){
+  if(v instanceof Date) return v;
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return new Date(Date.UTC(1899,11,30) + Math.round(v*86400000));
+  const s = v.toString().trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(Date.UTC(+m[3], +m[2]-1, +m[1]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7TzNXg6OqTL4xpLQfPNd8uv4ziyl_J0EEgaVkcxjU_H0ahJqYZZStUhNxRzvLA/pub?gid=901832761&single=true&output=csv";
+
+function parseMultasWorkbook(workbook){
+  const sheetName = workbook.SheetNames.find(n=>n.toUpperCase().includes('CONTROLE DE MULTAS'))
+    || workbook.SheetNames.find(n=>n.toUpperCase().includes('MULTAS'))
+    || workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const rowsRaw = XLSX.utils.sheet_to_json(ws, {defval:null});
+  const rows = [];
+  rowsRaw.forEach(row=>{
+    const placa = getVal(row,'placa');
+    if(!placa) return;
+    const mesRaw = (getVal(row,'mês')||'').toString().trim();
+    if(!mesRaw) return;
+    const mes = mesRaw.charAt(0).toUpperCase()+mesRaw.slice(1).toLowerCase();
+    if(!MES_FULL.includes(mes)) return;
+    const valor = parseNumberBR(getVal(row,'valor multa'));
+    const ano = parseInt(getVal(row,'ano')) || new Date().getFullYear();
+    const dataInf = parseDateFlexible(getVal(row,'data da infração'));
+
+    let dia = null, foraDoMes = false;
+    if(dataInf && !isNaN(dataInf.getTime())){
+      const expectedNum = MES_FULL.indexOf(mes)+1;
+      const actualNum = dataInf.getUTCMonth()+1;
+      if(actualNum===expectedNum){
+        const dd=String(dataInf.getUTCDate()).padStart(2,'0');
+        const mm=String(actualNum).padStart(2,'0');
+        dia = `${dd}/${mm}`;
+      } else { foraDoMes = true; }
+    }
+    rows.push({ mes, ano, valor, dia, foraDoMes });
+  });
+  if(rows.length===0) throw new Error('Nenhum registro válido encontrado. Confira se as colunas Placa, Mês e Valor Multa estão preenchidas.');
+  return { rows, validas: rows.length };
+}
+
+function buildMonthTabs(selecionado){
+  const wrap = document.getElementById('monthTabs');
+  const meses = ['Todos', ...MESES_ORDEM];
+  wrap.innerHTML = '<span class="lbl">Mês de referência</span>' + meses.map(m=>
+    `<button class="month-btn${m===selecionado?' active':''}" data-mes="${m}">${m}</button>`
+  ).join('');
+  wrap.querySelectorAll('.month-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      FILTERS.mes = btn.dataset.mes;
+      FILTERS.valor = null;
+      wrap.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderMultas();
+    });
+  });
+}
+
+function applyParsedResult(result, sourceLabel){
+  RAW_ROWS = result.rows;
+  MESES_ORDEM = MES_FULL.filter(m=>RAW_ROWS.some(r=>r.mes===m));
+  const ultimo = MESES_ORDEM[MESES_ORDEM.length-1];
+  FILTERS = { mes: ultimo, valor: null };
+  buildMonthTabs(ultimo);
+  renderMultas();
+  const agora = new Date();
+  document.getElementById('box-extracao').textContent = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('fonteLbl').textContent = 'Fonte: ' + sourceLabel;
+  showStatus(`Dados atualizados — ${result.validas} multa(s) em ${MESES_ORDEM.length} mês(es).`, 'ok');
+}
+
+function loadFromSheet(){
+  if(!SHEET_CSV_URL){
+    showStatus('Link da planilha ainda não configurado — exibindo dados de exemplo.', 'err');
+    return;
+  }
+  showStatus('Buscando dados mais recentes da planilha…', 'ok');
+  const bustedUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  fetch(bustedUrl, {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('não foi possível acessar a planilha (verifique o compartilhamento)'); return r.text(); })
+    .then(csvText=>{
+      const wb = XLSX.read(csvText, {type:'string', raw:true});
+      const result = parseMultasWorkbook(wb);
+      applyParsedResult(result, 'Google Sheets');
+    })
+    .catch(err=>{
+      showStatus('Não consegui atualizar da planilha: ' + err.message + '. Exibindo dados de exemplo.', 'err');
+    });
+}
+function showStatus(msg, kind){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + kind;
+  clearTimeout(window._statusTimer);
+  window._statusTimer = setTimeout(()=> el.classList.remove('show'), 6000);
+}
+
+/* ---------------- CHART PRIMITIVES ---------------- */
+function donutChart(elId, labels, values, colors){
+  const total=values.reduce((a,b)=>a+b,0) || 1;
+  let acc=0, stops=[];
+  values.forEach((v,i)=>{ const s=(acc/total)*360; acc+=v; const e=(acc/total)*360; stops.push(`${colors[i]} ${s.toFixed(2)}deg ${e.toFixed(2)}deg`); });
+  const gradient=`conic-gradient(${stops.join(', ')})`;
+  let legend=`<div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;">`;
+  labels.forEach((lb,i)=>{
+    const pct=((values[i]/total)*100).toFixed(1);
+    const active = FILTERS.valor===lb;
+    const dim = FILTERS.valor && !active ? 'opacity:0.4;' : '';
+    const bold = active ? 'font-weight:800;' : '';
+    legend+=`<div onclick="setValorFilter('${lb}')" style="display:flex;align-items:center;justify-content:space-between;font-size:11px;gap:6px;cursor:pointer;${dim}">
+      <div style="display:flex;align-items:center;gap:6px;color:#5B6472;${bold}"><span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};flex-shrink:0;"></span>R$ ${lb}</div>
+      <div style="font-weight:700;color:#1F2937;${bold}">${values[i]} (${pct}%)</div>
+    </div>`;
+  });
+  legend+='</div>';
+  const html=`<div style="display:flex;align-items:center;gap:14px;height:100%;">
+    <div style="width:105px;height:105px;border-radius:50%;flex-shrink:0;position:relative;background:${gradient}">
+      <div style="position:absolute;inset:20px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+        <div style="font-size:18px;font-weight:800;">${total}</div>
+        <div style="font-size:8px;color:#9AA2AC;text-transform:uppercase;">Total</div>
+      </div>
+    </div>
+    ${legend}
+  </div>`;
+  document.getElementById(elId).innerHTML=html;
+}
+function areaChart(elId, labels, values, color){
+  const W=560,H=180,padL=22,padR=16,padT=22,padB=22;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const n=labels.length;
+  const step = n>1 ? plotW/(n-1) : 0;
+  const max=Math.max(...values,1)*1.3;
+  const pts=values.map((v,i)=>[padL+step*i, padT+plotH-(v/max)*plotH, v]);
+  let svg=`<svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${color}" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+    </linearGradient></defs>`;
+  for(let g=0;g<=2;g++){ const gy=padT+plotH-(plotH/2)*g; svg+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#EEF1EF" stroke-width="1"/>`; }
+  if(pts.length>1){
+    const line=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L ');
+    const area=`M ${pts[0][0]},${padT+plotH} L ${line} L ${pts[pts.length-1][0]},${padT+plotH} Z`;
+    svg+=`<path d="${area}" fill="url(#ag)"/>`;
+    svg+=`<path d="M ${line}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+  }
+  pts.forEach(p=>{
+    svg+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${color}"/>`;
+    svg+=`<text x="${p[0].toFixed(1)}" y="${(p[1]-8).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${color}" font-weight="700">${p[2]}</text>`;
+  });
+  labels.forEach((lb,i)=>{ svg+=`<text x="${pts[i][0].toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9" fill="#5B6472">${lb}</text>`; });
+  svg+='</svg>';
+  document.getElementById(elId).innerHTML=svg;
+}
+function hbarChart(elId, labels, values, colors, valueFmt){
+  const max=Math.max(...values,1);
+  const n=labels.length;
+  const gap = n>5 ? 5 : 8;
+  const barH = n>5 ? 13 : 16;
+  let html=`<div style="display:flex;flex-direction:column;gap:${gap}px;justify-content:center;height:100%;">`;
+  labels.forEach((lb,i)=>{
+    const w=Math.max((values[i]/max)*100,4);
+    const active = FILTERS.valor===lb;
+    const dim = FILTERS.valor && !active ? 'opacity:0.4;' : '';
+    html+=`<div onclick="setValorFilter('${lb}')" style="display:grid;grid-template-columns:90px 1fr 40px;align-items:center;gap:10px;cursor:pointer;${dim}">
+      <div style="font-size:11px;color:#5B6472;">R$ ${lb}</div>
+      <div style="height:${barH}px;background:#EEF1F5;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${w}%;background:${colors[i]};border-radius:3px;"></div></div>
+      <div style="font-size:11px;font-weight:700;text-align:right;">${valueFmt?valueFmt(values[i]):values[i]}</div>
+    </div>`;
+  });
+  html+='</div>';
+  document.getElementById(elId).innerHTML=html;
+}
+
+/* ---------------- RENDER ---------------- */
+function renderMultas(){
+  const d = computeView();
+
+  if(FILTERS.mes==='Todos'){
+    const anos = [...new Set(RAW_ROWS.map(r=>r.ano))];
+    const anoTxt = anos.length===1 ? anos[0] : `${Math.min(...anos)}–${Math.max(...anos)}`;
+    document.getElementById('hdr-sub').textContent = `MÊS DE REFERÊNCIA: TODOS OS MESES (${anoTxt})`;
+    document.getElementById('box-mes').textContent = `Todos os meses`;
+  } else {
+    const anoRef = RAW_ROWS.find(r=>r.mes===FILTERS.mes).ano;
+    document.getElementById('hdr-sub').textContent = `MÊS DE REFERÊNCIA: ${FILTERS.mes.toUpperCase()}/${anoRef}`;
+    document.getElementById('box-mes').textContent = `${FILTERS.mes}/${anoRef}`;
+  }
+
+  document.getElementById('k-total').textContent = fmtInt(d.total);
+  document.getElementById('k-valor').textContent = fmtBRLnum(d.valor);
+  document.getElementById('k-media').textContent = fmtBRLnum(d.media);
+  document.getElementById('k-maior').textContent = fmtBRLnum(d.maior);
+  document.getElementById('k-menor').textContent = fmtBRLnum(d.menor);
+  document.getElementById('f-total').textContent = fmtInt(d.total);
+  document.getElementById('f-valor').textContent = fmtBRLnum(d.valor);
+
+  const distKeys = Object.keys(d.dist).sort((a,b)=> parseFloat(a.replace(/\./g,'').replace(',','.')) - parseFloat(b.replace(/\./g,'').replace(',','.')) );
+  const distVals = distKeys.map(k=>d.dist[k]);
+  const colors = distKeys.map((_,i)=>VALOR_COLORS[i % VALOR_COLORS.length]);
+
+  let rows = distKeys.map((k,i)=>{
+    const active = FILTERS.valor===k;
+    return `<tr onclick="setValorFilter('${k}')" style="cursor:pointer;${active?'font-weight:800;background:#EFF6FF;':''}"><td>R$ ${k}</td><td class="num">${d.dist[k]}</td></tr>`;
+  }).join('');
+  rows += `<tr class="total"><td>Total</td><td class="num">${d.total}</td></tr>`;
+  document.getElementById('tbl-valores').innerHTML = `<table class="vt"><thead><tr><th>Valor (R$)</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  donutChart('c-donut-valores', distKeys, distVals, colors);
+  hbarChart('c-hbar-detalhe', distKeys, distVals, colors, v=>v);
+
+  const diasLabels = Object.keys(d.diario).sort((a,b)=>{
+    const [da,ma]=a.split('/'), [db,mb]=b.split('/');
+    return (ma+da) - (mb+db);
+  });
+  const diasValues = diasLabels.map(k=>d.diario[k]);
+  areaChart('c-area-diario', diasLabels, diasValues, FILTERS.valor ? (colors[distKeys.indexOf(FILTERS.valor)]||'#1D4ED8') : '#1D4ED8');
+
+  const foraTxt = d.fora>0 ? `* ${d.fora} multa(s) deste lote possuem data de infração fora do mês de referência e não aparecem no gráfico diário.` : '';
+  document.getElementById('nota-diario').textContent = foraTxt;
+
+  const chip = document.getElementById('valorFilterChip');
+  if(FILTERS.valor){ chip.style.display='block'; document.getElementById('valorFilterTxt').textContent = 'R$ '+FILTERS.valor; }
+  else{ chip.style.display='none'; }
+}
+
+document.getElementById('btnRefresh').addEventListener('click', loadFromSheet);
+
+buildMonthTabs('Junho');
+renderMultas();
+loadFromSheet();
+</script>
+
+</body>
+</html>
