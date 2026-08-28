@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consórcio LimpaGyn · Tratativa de Multas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --green:#1B6B45; --green-dk:#124D32; --green-lt:#E7F2EC;
+    --navy:#1E3A5F; --gray:#9CA3AF; --gold:#F2B705; --lgray:#C7CDD4;
+    --ink:#1F2937; --ink-soft:#5B6472; --ink-faint:#9AA2AC;
+    --bg:#F2F4F3; --card:#FFFFFF; --border:#E4E8E6;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:#000; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:var(--ink); padding:28px 14px; }
+  .stage-label{ max-width:1600px; margin:0 auto 10px; color:#5C6265; font-size:12.5px; }
+
+  .stage{ width:100%; max-width:1600px; margin:0 auto; aspect-ratio:16/9; position:relative; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.5); }
+  .canvas{ width:1600px; height:900px; position:absolute; top:0; left:0; transform-origin:top left; background:var(--bg); display:flex; flex-direction:column; padding:22px 26px; }
+
+  /* Header */
+  .hdr{ display:flex; align-items:center; justify-content:space-between; padding-bottom:14px; flex-shrink:0; }
+  .hdr-left{ display:flex; align-items:center; gap:16px; }
+  .logo-badge{ width:56px; height:56px; border-radius:50%; background:conic-gradient(var(--green) 0deg 300deg, var(--green-lt) 300deg 360deg); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .logo-badge::after{ content:''; width:38px; height:38px; border-radius:50%; background:var(--bg); }
+  .hdr-title{ font-size:30px; font-weight:800; letter-spacing:0.01em; color:var(--ink); line-height:1; }
+  .hdr-sub{ font-size:14px; color:var(--ink-soft); margin-top:6px; }
+  .hdr-right{ text-align:right; }
+  .hdr-right .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); font-weight:700; }
+  .hdr-right .val{ font-size:15px; font-weight:700; color:var(--green-dk); margin-top:2px; }
+  .btn-upload{ font-family:inherit; font-size:12.5px; font-weight:700; padding:9px 18px; border-radius:6px; border:none; background:var(--green); color:#fff; cursor:pointer; }
+  .btn-upload:hover{ background:var(--green-dk); }
+  .status-msg{ position:absolute; top:88px; right:26px; max-width:440px; font-size:12px; padding:9px 16px; border-radius:6px; display:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); z-index:5; }
+  .status-msg.show{ display:block; }
+  .status-msg.ok{ background:#E7F2EC; color:var(--green-dk); border:1px solid #BFE0CE; }
+  .status-msg.err{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+
+  /* KPI Row */
+  .kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; flex-shrink:0; margin-bottom:14px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px 16px; display:flex; align-items:center; gap:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .kpi-icon{ width:44px; height:44px; border-radius:50%; background:var(--green); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .kpi-icon svg{ width:22px; height:22px; }
+  .kpi-txt .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); font-weight:700; }
+  .kpi-txt .val{ font-size:24px; font-weight:800; color:var(--ink); margin-top:2px; }
+
+  /* Layout Body */
+  .body{ flex:1; min-height:0; display:grid; grid-template-columns:200px 1fr; gap:16px; }
+
+  /* Sidebar */
+  .sidebar{ display:flex; flex-direction:column; gap:14px; }
+  .side-title{ font-size:13px; font-weight:800; letter-spacing:0.04em; color:var(--ink); }
+  .filter-block{ display:flex; flex-direction:column; gap:5px; }
+  .filter-lbl{ font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.04em; }
+  select.filter-select{ width:100%; font-family:inherit; font-size:12.5px; padding:8px 10px; border-radius:5px; border:1px solid var(--border); background:var(--card); color:var(--ink); }
+  .period-box{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; margin-top:6px; }
+  .period-box .plbl{ font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px; }
+  .period-box .pval{ font-size:14px; font-weight:700; color:var(--green-dk); line-height:1.4; }
+
+  /* Main Grid */
+  .main{ display:grid; grid-template-rows:1.15fr 1.05fr 0.65fr; gap:12px; min-height:0; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; min-height:0; }
+  .row2b{ display:grid; grid-template-columns:1.2fr 0.8fr; gap:12px; min-height:0; }
+  
+  .tile{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px 10px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .tile h4{ margin:0 0 8px; font-size:11.5px; font-weight:800; letter-spacing:0.04em; color:var(--ink); text-transform:uppercase; }
+  .tile-body{ flex:1; min-height:0; overflow:hidden; }
+
+  /* Tables */
+  table.rsm{ width:100%; border-collapse:collapse; font-size:11.5px; }
+  table.rsm th{ background:#EDF3EF; text-align:left; padding:6px 8px; font-weight:700; color:var(--ink-soft); font-size:10px; text-transform:uppercase; }
+  table.rsm td{ padding:5px 8px; border-bottom:1px solid var(--border); color:var(--ink); }
+  table.rsm tr.total td{ background:var(--green); color:#fff; font-weight:800; border-bottom:none; }
+  table.rsm td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* Insights Band */
+  .insights-band{ background:var(--card); border:1px solid var(--border); border-radius:8px; display:grid; grid-template-columns:150px 1fr; gap:0; overflow:hidden; }
+  .insights-head{ background:var(--green); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px; }
+  .insights-head svg{ width:26px; height:26px; }
+  .insights-head span{ font-size:12px; font-weight:800; text-align:center; letter-spacing:0.02em; }
+  .insights-list{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:12px 14px; align-items:center; }
+  .insight-item{ display:flex; align-items:flex-start; gap:8px; }
+  .insight-item .ic{ width:26px; height:26px; border-radius:50%; background:var(--green-lt); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .insight-item .ic svg{ width:14px; height:14px; }
+  .insight-item p{ margin:0; font-size:11px; line-height:1.35; color:var(--ink); }
+  .insight-item b{ color:var(--green-dk); }
+
+  footer{ text-align:center; font-size:11px; color:var(--ink-faint); padding-top:8px; flex-shrink:0; }
+  svg text{ font-family:'Segoe UI', Tahoma, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="stage-label">Consórcio LimpaGyn · Tratativa de Multas · 1600×900 (16:9)</div>
+
+<div class="stage"><div class="canvas">
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="logo-badge"></div>
+      <div>
+        <div class="hdr-title">TRATATIVA DE MULTAS</div>
+        <div class="hdr-sub">Enviadas ao Departamento Pessoal (DP)&nbsp;&nbsp;|&nbsp;&nbsp;<span id="hdr-sub-period">Março a Junho</span></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="lbl" id="fonteLbl">Fonte: dados de exemplo</div>
+      <button class="btn-upload" id="btnRefresh" style="margin-top:4px;">Atualizar agora</button>
+      <div style="margin-top:10px">
+        <div class="lbl">Dados atualizados até</div>
+        <div class="val" id="hdr-mes">Junho</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" title="Quantidade total de multas registradas no período.">
+      <div class="kpi-icon" id="ic-card-total"></div>
+      <div class="kpi-txt"><div class="lbl">Total de Multas</div><div class="val" id="kpi-total">0</div></div>
+    </div>
+    <div class="kpi-card" title="Montante financeiro total repassado ao DP para desconto.">
+      <div class="kpi-icon" id="ic-card-valor"></div>
+      <div class="kpi-txt"><div class="lbl">Valor Total Enviado (DP)</div><div class="val" id="kpi-valor">R$ 0,00</div></div>
+    </div>
+    <div class="kpi-card" title="Média de valor monetário por infração.">
+      <div class="kpi-icon" id="ic-card-media"></div>
+      <div class="kpi-txt"><div class="lbl">Ticket Médio da Multa</div><div class="val" id="kpi-media">R$ 0,00</div></div>
+    </div>
+    <div class="kpi-card" title="Total de condutores únicos autuados.">
+      <div class="kpi-icon" style="background:var(--navy)" id="ic-card-drivers"></div>
+      <div class="kpi-txt"><div class="lbl">Motoristas Notificados</div><div class="val" id="kpi-motoristas">0</div></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="side-title">FILTROS</div>
+      <div class="filter-block">
+        <div class="filter-lbl">Mês</div>
+        <select class="filter-select" id="fMes">
+          <option value="Todos">Todos</option>
+        </select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">Motorista</div>
+        <select class="filter-select" id="fMotorista">
+          <option value="Todos">Todos</option>
+        </select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">Faixa de Valor</div>
+        <select class="filter-select" id="fValor">
+          <option value="Todos">Todos</option>
+        </select>
+      </div>
+      <div id="btnClearFilters" style="display:none; font-size:11px; font-weight:700; color:var(--green-dk); cursor:pointer; text-decoration:underline; margin-top:-4px;">Limpar filtros</div>
+      <div class="period-box">
+        <div class="plbl">Período Analisado</div>
+        <div class="pval" id="periodo-analisado">—</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="row3">
+        <div class="tile">
+          <h4>Top Motoristas com Mais Multas</h4>
+          <div class="tile-body" id="c-hbar-motoristas"></div>
+        </div>
+        <div class="tile">
+          <h4>Distribuição por Valor (R$)</h4>
+          <div class="tile-body" id="c-donut-valores"></div>
+        </div>
+        <div class="tile">
+          <h4>Evolução das Multas Enviadas</h4>
+          <div class="tile-body" id="c-linha-evolucao"></div>
+        </div>
+      </div>
+
+      <div class="row2b">
+        <div class="tile">
+          <h4>Detalhamento por Motorista</h4>
+          <div class="tile-body" id="tbl-motoristas" style="overflow-y:auto;"></div>
+        </div>
+        <div class="tile">
+          <h4>Resumo dos Valores Enviados ao DP</h4>
+          <div class="tile-body" id="tbl-valores-resumo" style="overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <div class="insights-band">
+        <div class="insights-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.7v.5h5.6v-.5c0-.7.3-1.3.8-1.7A6 6 0 0 0 12 3z"/></svg>
+          <span>PRINCIPAIS<br>INSIGHTS</span>
+        </div>
+        <div class="insights-list" id="insights-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Consórcio LimpaGyn – Gestão e Tratativa de Multas</footer>
+
+</div></div>
+
+<script>
+function scaleStage(){
+  const stage=document.querySelector('.stage'), canvas=document.querySelector('.canvas');
+  canvas.style.transform=`scale(${stage.clientWidth/1600})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+
+const ICONS = {
+  check:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/></svg>`,
+  dollar:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  bars:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`,
+  people:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 20c.3-2.6 1.8-4.6 4-5.4"/></svg>`,
+  up:`<svg viewBox="0 0 24 24" fill="none" stroke="#124D32" stroke-width="2.4"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>`,
+  alert:`<svg viewBox="0 0 24 24" fill="none" stroke="#124D32" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+};
+
+document.getElementById('ic-card-total').innerHTML = ICONS.check;
+document.getElementById('ic-card-valor').innerHTML = ICONS.dollar;
+document.getElementById('ic-card-media').innerHTML = ICONS.bars;
+document.getElementById('ic-card-drivers').innerHTML = ICONS.people;
+
+function fmtBRL(v){ return 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtBRLCompact(v){
+  if(Math.abs(v)>=1000) return 'R$ ' + (v/1000).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'mil';
+  return fmtBRL(v);
+}
+function fmtInt(v){ return v.toLocaleString('pt-BR'); }
+const MES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MES_ABBR = {'Janeiro':'Jan','Fevereiro':'Fev','Março':'Mar','Abril':'Abr','Maio':'Mai','Junho':'Jun','Julho':'Jul','Agosto':'Ago','Setembro':'Set','Outubro':'Out','Novembro':'Nov','Dezembro':'Dez'};
+const VALOR_PALETTE = ['#1B6B45','#1E3A5F','#F2B705','#3599B8','#9CA3AF','#E57373','#81C784','#BA68C8'];
+
+/* ---------------- DADOS DE EXEMPLO COM MOTORISTAS ---------------- */
+const DEMO_DRIVERS = [
+  'Carlos Eduardo Silva', 'Marcos Antônio Souza', 'João Paulo Pereira', 
+  'Lucas Ferreira Santos', 'Roberto Almeida Costa', 'José Henrique Lima', 
+  'Fernando Mendes', 'Alexandre Borges'
+];
+
+function synthesizeDemoRows(){
+  const rawDist = [
+    { mes:'Março', ano:2026, motorista: DEMO_DRIVERS[0], valor: 293.47 },
+    { mes:'Abril', ano:2026, motorista: DEMO_DRIVERS[1], valor: 130.16 },
+    { mes:'Abril', ano:2026, motorista: DEMO_DRIVERS[1], valor: 130.16 },
+    { mes:'Abril', ano:2026, motorista: DEMO_DRIVERS[2], valor: 195.23 },
+    { mes:'Abril', ano:2026, motorista: DEMO_DRIVERS[0], valor: 293.47 },
+    { mes:'Maio', ano:2026, motorista: DEMO_DRIVERS[0], valor: 130.16 },
+    { mes:'Maio', ano:2026, motorista: DEMO_DRIVERS[3], valor: 293.47 },
+    { mes:'Maio', ano:2026, motorista: DEMO_DRIVERS[4], valor: 195.23 },
+    { mes:'Maio', ano:2026, motorista: DEMO_DRIVERS[0], valor: 390.48 },
+    { mes:'Maio', ano:2026, motorista: DEMO_DRIVERS[2], valor: 130.16 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[0], valor: 293.47 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[1], valor: 130.16 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[0], valor: 880.41 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[5], valor: 195.23 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[6], valor: 130.16 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[2], valor: 293.47 },
+    { mes:'Junho', ano:2026, motorista: DEMO_DRIVERS[3], valor: 390.48 }
+  ];
+  return rawDist;
+}
+
+let RAW_ROWS = synthesizeDemoRows();
+let MESES_ORDEM = ['Março','Abril','Maio','Junho'];
+let FILTERS = { mes: 'Todos', motorista: 'Todos', valor: 'Todos' };
+
+/* ---------------- MOTOR DE FILTRO ---------------- */
+function rowsMatch(r){
+  const matchMes = (FILTERS.mes === 'Todos' || r.mes === FILTERS.mes);
+  const matchMotorista = (FILTERS.motorista === 'Todos' || r.motorista === FILTERS.motorista);
+  const valStr = r.valor.toFixed(2).replace('.', ',');
+  const matchValor = (FILTERS.valor === 'Todos' || valStr === FILTERS.valor);
+  return matchMes && matchMotorista && matchValor;
+}
+
+function filteredRows(){ return RAW_ROWS.filter(rowsMatch); }
+
+function setFilter(dim, val){
+  FILTERS[dim] = val;
+  syncSelects();
+  renderAll();
+}
+
+function clearFilters(){
+  FILTERS = { mes: 'Todos', motorista: 'Todos', valor: 'Todos' };
+  syncSelects();
+  renderAll();
+}
+
+function syncSelects(){
+  document.getElementById('fMes').value = FILTERS.mes;
+  document.getElementById('fMotorista').value = FILTERS.motorista;
+  document.getElementById('fValor').value = FILTERS.valor;
+  const anyActive = (FILTERS.mes !== 'Todos' || FILTERS.motorista !== 'Todos' || FILTERS.valor !== 'Todos');
+  document.getElementById('btnClearFilters').style.display = anyActive ? 'block' : 'none';
+}
+
+function updateFilterOptions(){
+  const mesSel = document.getElementById('fMes');
+  const motSel = document.getElementById('fMotorista');
+  const valSel = document.getElementById('fValor');
+
+  const meses = [...new Set(RAW_ROWS.map(r=>r.mes))].sort((a,b)=>MES_FULL.indexOf(a)-MES_FULL.indexOf(b));
+  mesSel.innerHTML = '<option value="Todos">Todos</option>' + meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+  const motoristas = [...new Set(RAW_ROWS.map(r=>r.motorista))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  motSel.innerHTML = '<option value="Todos">Todos</option>' + motoristas.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+  const valores = [...new Set(RAW_ROWS.map(r=>r.valor.toFixed(2).replace('.', ',')))].sort((a,b)=>parseFloat(a.replace(',','.'))-parseFloat(b.replace(',','.')));
+  valSel.innerHTML = '<option value="Todos">Todos</option>' + valores.map(v=>`<option value="${v}">R$ ${v}</option>`).join('');
+}
+
+/* ---------------- LEITURA DE PLANILHA ---------------- */
+function getKey(row, wantedLower){ for(const k in row){ if(k.trim().toLowerCase()===wantedLower) return k; } return null; }
+function getVal(row, wantedLower){ const k=getKey(row,wantedLower); return k===null ? null : row[k]; }
+function parseNumberBR(v){
+  if(v==null || v==='') return 0;
+  if(typeof v==='number') return v;
+  let s=v.toString().trim(); if(s==='') return 0;
+  s = s.replace(/[^\d,.\-]/g, '');
+  if(s==='') return 0;
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',', '.');
+  else if(lastDot > lastComma) s = s.replace(/,/g,'');
+  const n=parseFloat(s); return isNaN(n) ? 0 : n;
+}
+
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7TzNXg6OqTL4xpLQfPNd8uv4ziyl_J0EEgaVkcxjU_H0ahJqYZZStUhNxRzvLA/pub?gid=901832761&single=true&output=csv";
+
+function parseMultasWorkbook(workbook){
+  const sheetName = workbook.SheetNames.find(n=>n.toUpperCase().includes('CONTROLE DE MULTAS'))
+    || workbook.SheetNames.find(n=>n.toUpperCase().includes('MULTAS'))
+    || workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const rowsRaw = XLSX.utils.sheet_to_json(ws, {defval:null});
+  const rows = [];
+  rowsRaw.forEach(row=>{
+    let motorista = (getVal(row,'motorista') || getVal(row,'condutor') || getVal(row,'nome') || getVal(row,'colaborador') || '').toString().trim();
+    if(!motorista) motorista = 'Não informado';
+
+    const mesRaw = (getVal(row,'mês') || getVal(row,'mes') || '').toString().trim();
+    if(!mesRaw) return;
+    const mes = mesRaw.charAt(0).toUpperCase()+mesRaw.slice(1).toLowerCase();
+    if(!MES_FULL.includes(mes)) return;
+
+    const valor = parseNumberBR(getVal(row,'valor multa') || getVal(row,'valor'));
+    if(valor <= 0) return;
+
+    const ano = parseInt(getVal(row,'ano')) || new Date().getFullYear();
+
+    rows.push({ mes, ano, motorista, valor });
+  });
+
+  if(rows.length===0) throw new Error('Nenhum registro válido com Motorista, Mês e Valor encontrado.');
+  return { rows, validas: rows.length };
+}
+
+function applyParsedResult(result, sourceLabel){
+  RAW_ROWS = result.rows;
+  MESES_ORDEM = MES_FULL.filter(m=>RAW_ROWS.some(r=>r.mes===m));
+  updateFilterOptions();
+  clearFilters();
+  document.getElementById('fonteLbl').textContent = 'Fonte: ' + sourceLabel;
+  showStatus(`Dados atualizados — ${result.validas} multa(s) carregada(s).`, 'ok');
+}
+
+function loadFromSheet(){
+  if(!SHEET_CSV_URL){
+    showStatus('Link da planilha não informado — exibindo dados de exemplo.', 'err');
+    return;
+  }
+  showStatus('Buscando dados atualizados da planilha…', 'ok');
+  const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  fetch(url, {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('acesso recusado à planilha'); return r.text(); })
+    .then(csv=>{
+      const wb = XLSX.read(csv, {type:'string', raw:true});
+      const result = parseMultasWorkbook(wb);
+      applyParsedResult(result, 'Google Sheets');
+    })
+    .catch(err=>{
+      showStatus('Não foi possível carregar a planilha ('+err.message+'). Mantendo dados de exemplo.', 'err');
+    });
+}
+
+function showStatus(msg, kind){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + kind;
+  clearTimeout(window._statusTimer);
+  window._statusTimer = setTimeout(()=> el.classList.remove('show'), 6000);
+}
+
+/* ---------------- GRÁFICOS SVG ---------------- */
+function donutChart(elId, labels, values, colors){
+  const total = values.reduce((a,b)=>a+b,0) || 1;
+  let acc=0, stops=[];
+  values.forEach((v,i)=>{
+    const s=(acc/total)*360; acc+=v; const e=(acc/total)*360;
+    stops.push(`${colors[i % colors.length]} ${s.toFixed(2)}deg ${e.toFixed(2)}deg`);
+  });
+  const gradient = `conic-gradient(${stops.join(', ')})`;
+  let legend = `<div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;overflow-y:auto;max-height:160px;">`;
+  labels.forEach((lb,i)=>{
+    const pct = ((values[i]/total)*100).toFixed(1);
+    const active = FILTERS.valor === lb;
+    const dim = FILTERS.valor !== 'Todos' && !active ? 'opacity:0.35;' : '';
+    const bold = active ? 'font-weight:800;' : '';
+    legend += `<div onclick="setFilter('valor', '${active ? 'Todos' : lb}')" style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px;gap:6px;cursor:pointer;${dim}">
+      <span style="display:flex;align-items:center;gap:5px;color:#5B6472;${bold}">
+        <span style="width:7px;height:7px;border-radius:2px;background:${colors[i % colors.length]};flex-shrink:0;"></span>R$ ${lb}
+      </span>
+      <span style="color:#1F2937;font-weight:700;${bold}">${values[i]} (${pct}%)</span>
+    </div>`;
+  });
+  legend += '</div>';
+
+  const html = `<div style="display:flex;align-items:center;gap:14px;height:100%;">
+    <div style="width:105px;height:105px;border-radius:50%;flex-shrink:0;position:relative;background:${gradient};">
+      <div style="position:absolute;inset:20px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+        <div style="font-size:18px;font-weight:800;color:var(--ink);">${total}</div>
+        <div style="font-size:8px;color:#9AA2AC;text-transform:uppercase;">Multas</div>
+      </div>
+    </div>
+    ${legend}
+  </div>`;
+  document.getElementById(elId).innerHTML = html;
+}
+
+function hbarRanking(elId, data){
+  if(data.length===0){ document.getElementById(elId).innerHTML='<div style="font-size:11px;color:var(--ink-soft);padding:10px;">Nenhum registro.</div>'; return; }
+  const max = Math.max(...data.map(d=>d.qtd), 1);
+  const html = `<div style="display:flex;flex-direction:column;gap:6px;justify-content:center;height:100%;overflow-y:auto;">` +
+    data.slice(0,5).map(d=>{
+      const pct = (d.qtd / max) * 100;
+      const isSel = FILTERS.motorista === d.motorista;
+      const bold = isSel ? 'font-weight:800;' : '';
+      return `<div onclick="setFilter('motorista', '${isSel ? 'Todos' : d.motorista}')" style="display:grid;grid-template-columns:120px 1fr 35px;align-items:center;gap:8px;cursor:pointer;">
+        <div style="font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${bold}" title="${d.motorista}">${d.motorista}</div>
+        <div style="height:12px;background:#EEF1EF;border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px;"></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;text-align:right;color:var(--green-dk);">${d.qtd}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  document.getElementById(elId).innerHTML = html;
+}
+
+function lineChartEvolucao(elId, labels, values){
+  const W=460,H=170,padL=18,padR=16,padT=24,padB=20;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const n=labels.length;
+  const max=Math.max(...values,1)*1.25, min=0;
+  const step=n>1 ? plotW/(n-1) : 0;
+  let svg=`<svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`;
+  for(let g=0;g<=2;g++){ const gy=padT+plotH-(plotH/2)*g; svg+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#EEF1EF" stroke-width="1"/>`; }
+  const pts=values.map((v,i)=>[padL+step*i, padT+plotH-((v-min)/(max-min))*plotH, v]);
+  svg+=`<polyline points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--green)" stroke-width="2.6" stroke-linejoin="round"/>`;
+  pts.forEach((p,i)=>{
+    svg+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.6" fill="var(--green)"/>`;
+    svg+=`<text x="${p[0].toFixed(1)}" y="${(p[1]-8).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--green-dk)" font-weight="700">${p[2]}</text>`;
+    svg+=`<text x="${p[0].toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="10" fill="#5B6472">${labels[i]}</text>`;
+  });
+  svg+='</svg>';
+  document.getElementById(elId).innerHTML=svg;
+}
+
+/* ---------------- RENDER GERAL ---------------- */
+function renderAll(){
+  const rows = filteredRows();
+  const total = rows.length;
+  const valorTotal = rows.reduce((s,r)=>s+r.valor, 0);
+  const media = total ? valorTotal / total : 0;
+  const uniqueDrivers = [...new Set(rows.map(r=>r.motorista))].filter(Boolean);
+
+  document.getElementById('kpi-total').textContent = fmtInt(total);
+  document.getElementById('kpi-valor').textContent = fmtBRL(valorTotal);
+  document.getElementById('kpi-media').textContent = fmtBRL(media);
+  document.getElementById('kpi-motoristas').textContent = fmtInt(uniqueDrivers.length);
+
+  const ultimoMes = MESES_ORDEM[MESES_ORDEM.length-1] || 'Junho';
+  document.getElementById('hdr-mes').textContent = FILTERS.mes === 'Todos' ? ultimoMes : FILTERS.mes;
+  document.getElementById('periodo-analisado').innerHTML = FILTERS.mes === 'Todos'
+    ? (MESES_ORDEM.length > 1 ? `${MESES_ORDEM[0]} a<br>${ultimoMes}` : ultimoMes)
+    : FILTERS.mes;
+
+  // 1. Ranking Motoristas
+  const countMot = {};
+  rows.forEach(r=>{ countMot[r.motorista] = (countMot[r.motorista] || 0) + 1; });
+  const rankArr = Object.keys(countMot).map(m=>({ motorista:m, qtd:countMot[m] })).sort((a,b)=>b.qtd-a.qtd);
+  hbarRanking('c-hbar-motoristas', rankArr);
+
+  // 2. Donut Valores
+  const countVal = {};
+  rows.forEach(r=>{ const v = r.valor.toFixed(2).replace('.',','); countVal[v] = (countVal[v] || 0) + 1; });
+  const valKeys = Object.keys(countVal).sort((a,b)=> parseFloat(a.replace(',','.')) - parseFloat(b.replace(',','.')));
+  const valVals = valKeys.map(k=>countVal[k]);
+  donutChart('c-donut-valores', valKeys, valVals, VALOR_PALETTE);
+
+  // 3. Linha Evolução Mensal
+  const mesesExibir = FILTERS.mes === 'Todos' ? MESES_ORDEM : [FILTERS.mes];
+  const evLabels = mesesExibir.map(m=>MES_ABBR[m]||m.slice(0,3));
+  const evValues = mesesExibir.map(m=> rows.filter(r=>r.mes===m).length );
+  lineChartEvolucao('c-linha-evolucao', evLabels, evValues);
+
+  // 4. Tabela Motoristas Detalhada
+  const summaryMot = {};
+  rows.forEach(r=>{
+    if(!summaryMot[r.motorista]) summaryMot[r.motorista] = { qtd:0, total:0 };
+    summaryMot[r.motorista].qtd++;
+    summaryMot[r.motorista].total += r.valor;
+  });
+  let tblMotHtml = Object.keys(summaryMot)
+    .sort((a,b)=>summaryMot[b].qtd - summaryMot[a].qtd)
+    .map(m=>{
+      const isSel = FILTERS.motorista === m;
+      return `<tr onclick="setFilter('motorista', '${isSel ? 'Todos' : m}')" style="cursor:pointer;${isSel?'font-weight:800;background:#E7F2EC;':''}">
+        <td>${m}</td>
+        <td class="num">${summaryMot[m].qtd}</td>
+        <td class="num">${fmtBRL(summaryMot[m].total)}</td>
+      </tr>`;
+    }).join('');
+  if(tblMotHtml){
+    tblMotHtml += `<tr class="total"><td>Total</td><td class="num">${total}</td><td class="num">${fmtBRL(valorTotal)}</td></tr>`;
+  }
+  document.getElementById('tbl-motoristas').innerHTML = `<table class="rsm">
+    <thead><tr><th>Motorista</th><th style="text-align:right">Multas</th><th style="text-align:right">Total (R$)</th></tr></thead>
+    <tbody>${tblMotHtml || '<tr><td colspan="3">Nenhum dado</td></tr>'}</tbody>
+  </table>`;
+
+  // 5. Tabela Resumo Faixas de Valor
+  let tblValHtml = valKeys.map(k=>{
+    const qtd = countVal[k];
+    const tot = qtd * parseFloat(k.replace(',','.'));
+    const isSel = FILTERS.valor === k;
+    return `<tr onclick="setFilter('valor', '${isSel ? 'Todos' : k}')" style="cursor:pointer;${isSel?'font-weight:800;background:#E7F2EC;':''}">
+      <td>R$ ${k}</td>
+      <td class="num">${qtd}</td>
+      <td class="num">${fmtBRL(tot)}</td>
+    </tr>`;
+  }).join('');
+  if(tblValHtml){
+    tblValHtml += `<tr class="total"><td>Total</td><td class="num">${total}</td><td class="num">${fmtBRL(valorTotal)}</td></tr>`;
+  }
+  document.getElementById('tbl-valores-resumo').innerHTML = `<table class="rsm">
+    <thead><tr><th>Faixa de Valor</th><th style="text-align:right">Qtd</th><th style="text-align:right">Subtotal</th></tr></thead>
+    <tbody>${tblValHtml || '<tr><td colspan="3">Nenhum dado</td></tr>'}</tbody>
+  </table>`;
+
+  // 6. Insights Band
+  renderInsights(rankArr, valorTotal, valKeys, countVal);
+}
+
+function renderInsights(rankArr, valorTotal, valKeys, countVal){
+  const topMotorista = rankArr.length > 0 ? rankArr[0] : { motorista:'—', qtd:0 };
+  const maisFrequenteValor = valKeys.length > 0 ? valKeys.reduce((a,b)=>countVal[a]>countVal[b]?a:b) : '0,00';
+
+  const insights = [
+    { ic: ICONS.alert, html: `<b>${topMotorista.motorista}</b> é o condutor com maior reincidência de infrações (<b>${topMotorista.qtd}</b> multas).` },
+    { ic: ICONS.dollar, html: `Montante de <b>${fmtBRL(valorTotal)}</b> consolidado para processamento e desconto em folha via DP.` },
+    { ic: ICONS.bars, html: `A penalidade de <b>R$ ${maisFrequenteValor}</b> representa a maior fatia do volume de notificações.` },
+    { ic: ICONS.up, html: `O painel unifica o acompanhamento individual sem necessidade de rastreio por placas.` }
+  ];
+
+  document.getElementById('insights-list').innerHTML = insights.map(i=>`
+    <div class="insight-item"><div class="ic">${i.ic}</div><p>${i.html}</p></div>
+  `).join('');
+}
+
+/* ---------------- LISTENERS ---------------- */
+document.getElementById('fMes').addEventListener('change', e=> setFilter('mes', e.target.value));
+document.getElementById('fMotorista').addEventListener('change', e=> setFilter('motorista', e.target.value));
+document.getElementById('fValor').addEventListener('change', e=> setFilter('valor', e.target.value));
+document.getElementById('btnClearFilters').addEventListener('click', clearFilters);
+document.getElementById('btnRefresh').addEventListener('click', loadFromSheet);
+
+updateFilterOptions();
+syncSelects();
+renderAll();
+loadFromSheet();
+</script>
+
+</body>
+</html>
