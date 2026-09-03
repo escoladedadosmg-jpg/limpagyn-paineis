@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consórcio LimpaGyn · Tratativa de Multas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --green:#1B6B45; --green-dk:#124D32; --green-lt:#E7F2EC;
+    --navy:#1E3A5F; --gray:#9CA3AF; --gold:#F2B705; --red:#DC2626; --lgray:#C7CDD4;
+    --ink:#1F2937; --ink-soft:#5B6472; --ink-faint:#9AA2AC;
+    --bg:#F2F4F3; --card:#FFFFFF; --border:#E4E8E6;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:#000; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:var(--ink); padding:28px 14px; }
+  .stage-label{ max-width:1600px; margin:0 auto 10px; color:#5C6265; font-size:12.5px; }
+
+  .stage{ width:100%; max-width:1600px; margin:0 auto; aspect-ratio:16/9; position:relative; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.5); }
+  .canvas{ width:1600px; height:900px; position:absolute; top:0; left:0; transform-origin:top left; background:var(--bg); display:flex; flex-direction:column; padding:22px 26px; }
+
+  /* Header */
+  .hdr{ display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; flex-shrink:0; }
+  .hdr-left{ display:flex; align-items:center; gap:16px; }
+  .logo-badge{ width:54px; height:54px; border-radius:50%; background:conic-gradient(var(--green) 0deg 300deg, var(--green-lt) 300deg 360deg); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .logo-badge::after{ content:''; width:36px; height:36px; border-radius:50%; background:var(--bg); }
+  .hdr-title{ font-size:28px; font-weight:800; letter-spacing:0.01em; color:var(--ink); line-height:1; }
+  .hdr-sub{ font-size:13.5px; color:var(--ink-soft); margin-top:5px; }
+  .hdr-right{ text-align:right; }
+  .hdr-right .lbl{ font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); font-weight:700; }
+  .hdr-right .val{ font-size:14px; font-weight:700; color:var(--green-dk); margin-top:2px; }
+  .btn-upload{ font-family:inherit; font-size:12px; font-weight:700; padding:8px 16px; border-radius:6px; border:none; background:var(--green); color:#fff; cursor:pointer; }
+  .btn-upload:hover{ background:var(--green-dk); }
+  .status-msg{ position:absolute; top:84px; right:26px; max-width:440px; font-size:12px; padding:8px 15px; border-radius:6px; display:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); z-index:50; }
+  .status-msg.show{ display:block; }
+  .status-msg.ok{ background:#E7F2EC; color:var(--green-dk); border:1px solid #BFE0CE; }
+  .status-msg.err{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+
+  /* KPI Cards */
+  .kpi-row{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; flex-shrink:0; margin-bottom:12px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .kpi-icon{ width:42px; height:42px; border-radius:50%; background:var(--green); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .kpi-icon svg{ width:20px; height:20px; }
+  .kpi-txt .lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); font-weight:700; }
+  .kpi-txt .val{ font-size:21px; font-weight:800; color:var(--ink); margin-top:2px; }
+
+  /* Page Tabs Bar */
+  .page-tabs-bar{ display:flex; gap:6px; padding:0 0 10px; flex-shrink:0; }
+  .page-tab-btn{ font-family:inherit; font-size:12px; font-weight:700; padding:7px 16px; border-radius:6px; border:1px solid var(--border); background:#E8ECE9; color:var(--ink-soft); cursor:pointer; }
+  .page-tab-btn.active{ background:var(--green); color:#fff; border-color:var(--green); }
+
+  /* Body Layout */
+  .body{ flex:1; min-height:0; display:grid; grid-template-columns:195px 1fr; gap:14px; }
+
+  /* Sidebar */
+  .sidebar{ display:flex; flex-direction:column; gap:12px; }
+  .side-title{ font-size:12px; font-weight:800; letter-spacing:0.04em; color:var(--ink); }
+  .filter-block{ display:flex; flex-direction:column; gap:4px; }
+  .filter-lbl{ font-size:10px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.03em; }
+  select.filter-select{ width:100%; font-family:inherit; font-size:12px; padding:7px 9px; border-radius:5px; border:1px solid var(--border); background:var(--card); color:var(--ink); }
+  .period-box{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; margin-top:4px; }
+  .period-box .plbl{ font-size:10px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .period-box .pval{ font-size:13.5px; font-weight:700; color:var(--green-dk); line-height:1.4; }
+
+  /* Content Views */
+  .main-wrap{ min-height:0; display:flex; flex-direction:column; }
+  .page-content{ display:none; min-height:0; height:100%; }
+  .page-content.active{ display:grid; }
+  #page-geral{ grid-template-rows:1.05fr 1fr 68px; gap:10px; }
+  #page-especial{ grid-template-rows:1fr 1fr; gap:10px; }
+  #page-rastreabilidade{ grid-template-rows:1fr 1fr; gap:10px; }
+
+  .row3{ display:grid; grid-template-columns:1.05fr 0.95fr 1fr; gap:10px; min-height:0; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
+  .row2b{ display:grid; grid-template-columns:1.2fr 0.8fr; gap:10px; min-height:0; }
+
+  .tile{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px 8px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .tile h4{ margin:0 0 6px; font-size:11px; font-weight:800; letter-spacing:0.04em; color:var(--ink); text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+  .tile-body{ flex:1; min-height:0; overflow:hidden; }
+
+  /* Tables */
+  table.rsm{ width:100%; border-collapse:collapse; font-size:11px; }
+  table.rsm th{ background:#EDF3EF; text-align:left; padding:5px 8px; font-weight:700; color:var(--ink-soft); font-size:9.5px; text-transform:uppercase; position:sticky; top:0; }
+  table.rsm td{ padding:4.5px 8px; border-bottom:1px solid var(--border); color:var(--ink); }
+  table.rsm tr.total td{ background:var(--green); color:#fff; font-weight:800; border-bottom:none; }
+  table.rsm td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .badge-tag{ font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; display:inline-block; }
+  .badge-red{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+  .badge-green{ background:#E7F2EC; color:#124D32; border:1px solid #BFE0CE; }
+  .badge-gold{ background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; }
+
+  /* Insights Band */
+  .insights-band{ background:var(--card); border:1px solid var(--border); border-radius:8px; display:grid; grid-template-columns:130px 1fr; gap:0; overflow:hidden; }
+  .insights-head{ background:var(--green); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px; }
+  .insights-head svg{ width:22px; height:22px; }
+  .insights-head span{ font-size:11px; font-weight:800; text-align:center; letter-spacing:0.02em; }
+  .insights-list{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:8px 12px; align-items:center; }
+  .insight-item{ display:flex; align-items:flex-start; gap:7px; }
+  .insight-item .ic{ width:24px; height:24px; border-radius:50%; background:var(--green-lt); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .insight-item .ic svg{ width:13px; height:13px; }
+  .insight-item p{ margin:0; font-size:10.5px; line-height:1.3; color:var(--ink); }
+  .insight-item b{ color:var(--green-dk); }
+
+  footer{ text-align:center; font-size:10.5px; color:var(--ink-faint); padding-top:6px; flex-shrink:0; }
+  svg text{ font-family:'Segoe UI', Tahoma, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="stage-label">Consórcio LimpaGyn · Tratativa de Multas &amp; SLA de Prazos · 1600×900 (16:9)</div>
+
+<div class="stage"><div class="canvas">
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="logo-badge"></div>
+      <div>
+        <div class="hdr-title">TRATATIVA DE MULTAS</div>
+        <div class="hdr-sub">Gestão Operacional, Regra NIC &amp; Departamento Pessoal&nbsp;&nbsp;|&nbsp;&nbsp;<span id="hdr-sub-period">Carregando dados...</span></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="lbl" id="fonteLbl">Fonte: dados de exemplo</div>
+      <button class="btn-upload" id="btnRefresh" style="margin-top:3px;">Atualizar agora</button>
+      <div style="margin-top:6px">
+        <div class="lbl">Mês de Referência</div>
+        <div class="val" id="hdr-mes">Junho</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" title="Quantidade total de multas registradas no recorte filtrado.">
+      <div class="kpi-icon" id="ic-total"></div>
+      <div class="kpi-txt"><div class="lbl">Total de Notificações</div><div class="val" id="k-total">0</div></div>
+    </div>
+    <div class="kpi-card" title="Valor efetivo enviado ao DP: se a coluna NIC for 'Sim', adota o 'Valor com NIC'; se for 'Não', segue o 'Valor Multa' nominal.">
+      <div class="kpi-icon" id="ic-dollar"></div>
+      <div class="kpi-txt"><div class="lbl">Valor Efetivo da Multa (DP)</div><div class="val" id="k-valor-dp">R$ 0,00</div></div>
+    </div>
+    <div class="kpi-card" title="Diferença financeira acumulada gerada exclusivamente pelo agravamento de Não Indicação de Condutor (NIC).">
+      <div class="kpi-icon" style="background:var(--navy)" id="ic-nic"></div>
+      <div class="kpi-txt"><div class="lbl">Acréscimo por NIC (3x)</div><div class="val" id="k-acrescimo-nic">R$ 0,00</div></div>
+    </div>
+    <div class="kpi-card" title="Notificações ocorridas exatamente nos dias 20 e 21 (Corte de Folha / Penalidade Especial).">
+      <div class="kpi-icon" style="background:var(--gold)" id="ic-calendar"></div>
+      <div class="kpi-txt"><div class="lbl">Infrações Dias 20 e 21</div><div class="val" id="k-dias-esp">0</div></div>
+    </div>
+    <div class="kpi-card" title="Percentual de assinaturas devolvidas pelos encarregados em até 24 horas.">
+      <div class="kpi-icon" style="background:var(--navy)" id="ic-sla"></div>
+      <div class="kpi-txt"><div class="lbl">Conformidade SLA 24h</div><div class="val" id="k-sla-pct">0%</div></div>
+    </div>
+  </div>
+
+  <div class="page-tabs-bar">
+    <button class="page-tab-btn active" data-page="page-geral">Visão Geral &amp; Motoristas</button>
+    <button class="page-tab-btn" data-page="page-especial">Regra Especial (Dias 20 e 21)</button>
+    <button class="page-tab-btn" data-page="page-rastreabilidade">Rastreabilidade &amp; SLA Encarregados</button>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="side-title">FILTROS</div>
+      <div class="filter-block">
+        <div class="filter-lbl">Mês</div>
+        <select class="filter-select" id="fMes"><option value="Todos">Todos</option></select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">Encarregado / Gestor</div>
+        <select class="filter-select" id="fGestor"><option value="Todos">Todos</option></select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">PA (Ponto de Apoio)</div>
+        <select class="filter-select" id="fPA"><option value="Todos">Todos</option></select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">Dias 20 e 21</div>
+        <select class="filter-select" id="fEsp">
+          <option value="Todos">Todos os Dias</option>
+          <option value="SIM">Apenas Dias 20 e 21</option>
+          <option value="NAO">Demais Dias</option>
+        </select>
+      </div>
+      <div class="filter-block">
+        <div class="filter-lbl">SLA Encarregado</div>
+        <select class="filter-select" id="fSla">
+          <option value="Todos">Todos</option>
+          <option value="No Prazo">No Prazo (<=24h)</option>
+          <option value="Estourado">Estourado (>24h)</option>
+          <option value="Em Coleta">Em Coleta (Pendente)</option>
+        </select>
+      </div>
+      <div id="btnClearFilters" style="display:none; font-size:11px; font-weight:700; color:var(--green-dk); cursor:pointer; text-decoration:underline; margin-top:-2px;">Limpar filtros</div>
+      <div class="period-box">
+        <div class="plbl">Período Analisado</div>
+        <div class="pval" id="periodo-analisado">—</div>
+      </div>
+    </div>
+
+    <div class="main-wrap">
+
+      <!-- ABA 1: VISÃO GERAL -->
+      <div class="page-content active" id="page-geral">
+        <div class="row3">
+          <div class="tile">
+            <h4>Top Motoristas com Mais Multas</h4>
+            <div class="tile-body" id="c-hbar-motoristas"></div>
+          </div>
+          <div class="tile">
+            <h4>Cumprimento SLA 24h (Encarregados)</h4>
+            <div class="tile-body" id="c-donut-sla"></div>
+          </div>
+          <div class="tile">
+            <h4>Evolução Mensal de Multas</h4>
+            <div class="tile-body" id="c-linha-evolucao"></div>
+          </div>
+        </div>
+
+        <div class="row2b">
+          <div class="tile">
+            <h4>Detalhamento por Condutor (Valores Efetivos DP)</h4>
+            <div class="tile-body" id="tbl-condutores" style="overflow-y:auto;"></div>
+          </div>
+          <div class="tile">
+            <h4>Resumo por Ponto de Apoio (PA)</h4>
+            <div class="tile-body" id="tbl-pa" style="overflow-y:auto;"></div>
+          </div>
+        </div>
+
+        <div class="insights-band">
+          <div class="insights-head">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.7v.5h5.6v-.5c0-.7.3-1.3.8-1.7A6 6 0 0 0 12 3z"/></svg>
+            <span>INSIGHTS<br>OPERACIONAIS</span>
+          </div>
+          <div class="insights-list" id="insights-list"></div>
+        </div>
+      </div>
+
+      <!-- ABA 2: REGRA ESPECIAL DIAS 20 E 21 -->
+      <div class="page-content" id="page-especial">
+        <div class="row2">
+          <div class="tile">
+            <h4>Motoristas com Infração nos Dias 20 e 21</h4>
+            <div class="tile-body" id="tbl-esp-motoristas" style="overflow-y:auto;"></div>
+          </div>
+          <div class="tile">
+            <h4>Distribuição por Encarregado (Dias 20 e 21)</h4>
+            <div class="tile-body" id="c-hbar-esp-gestores"></div>
+          </div>
+        </div>
+        <div class="tile">
+          <h4>Lista de Ocorrências com Notificação Especial (Dias 20 e 21)</h4>
+          <div class="tile-body" id="tbl-esp-detalhe" style="overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- ABA 3: RASTREABILIDADE & SLA ENCARREGADOS -->
+      <div class="page-content" id="page-rastreabilidade">
+        <div class="row2">
+          <div class="tile">
+            <h4>Desempenho dos Encarregados (SLA de 24h na Assinatura)</h4>
+            <div class="tile-body" id="tbl-gestores-sla" style="overflow-y:auto;"></div>
+          </div>
+          <div class="tile">
+            <h4>Multas com Risco ou Incidência de NIC (3x)</h4>
+            <div class="tile-body" id="tbl-nic-detalhe" style="overflow-y:auto;"></div>
+          </div>
+        </div>
+        <div class="tile">
+          <h4>Auditoria de Fluxo (Data Envio Encarregado &rarr; Assinatura &rarr; Protocolo DP)</h4>
+          <div class="tile-body" id="tbl-fluxo-auditoria" style="overflow-y:auto;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>Consórcio LimpaGyn – Sistema de Controle e Tratativa de Multas</footer>
+
+</div></div>
+
+<script>
+function scaleStage(){
+  const stage=document.querySelector('.stage'), canvas=document.querySelector('.canvas');
+  canvas.style.transform=`scale(${stage.clientWidth/1600})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+
+const ICONS = {
+  check:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/></svg>`,
+  dollar:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  bars:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`,
+  calendar:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+  clock:`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  up:`<svg viewBox="0 0 24 24" fill="none" stroke="#124D32" stroke-width="2.4"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>`,
+  people:`<svg viewBox="0 0 24 24" fill="none" stroke="#124D32" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>`
+};
+document.getElementById('ic-total').innerHTML = ICONS.check;
+document.getElementById('ic-dollar').innerHTML = ICONS.dollar;
+document.getElementById('ic-nic').innerHTML = ICONS.dollar;
+document.getElementById('ic-calendar').innerHTML = ICONS.calendar;
+document.getElementById('ic-sla').innerHTML = ICONS.clock;
+
+function fmtBRL(v){ return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtInt(v){ return Number(v||0).toLocaleString('pt-BR'); }
+const MES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MES_ABBR = {'Janeiro':'Jan','Fevereiro':'Fev','Março':'Mar','Abril':'Abr','Maio':'Mai','Junho':'Jun','Julho':'Jul','Agosto':'Ago','Setembro':'Set','Outubro':'Out','Novembro':'Nov','Dezembro':'Dez'};
+
+/* ---------------- REGRA DE NEGÓCIO DE VALORES (NIC CONDICIONAL) ---------------- */
+function enrichRow(raw){
+  const dataInf = parseDateFlexible(raw.dataInf || raw['Data da Infração']);
+  const valorNominal = typeof raw.valor === 'number' ? raw.valor : parseNumberBR(raw['Valor Multa'] || raw.valor);
+  const valorComNICPlanilha = typeof raw.valorComNIC === 'number' ? raw.valorComNIC : parseNumberBR(raw['Valor com NIC'] || raw.valorComNIC);
+  
+  // 1. Identificação do status de NIC
+  const nicTxt = (raw.nic || raw['NIC'] || '').toString().trim().toUpperCase();
+  const temNIC = nicTxt.includes('SIM');
+
+  // 2. Regra de Negócio Solicitada:
+  // Se NIC == "Sim" -> Puxa da coluna 'Valor com NIC' da planilha (com fallback a 3x se a célula estiver em branco)
+  // Se NIC == "Não" (ou outro) -> Mantém o valor nominal de 'Valor Multa'
+  let valorEfetivo = valorNominal;
+  if (temNIC) {
+    if (valorComNICPlanilha && valorComNICPlanilha > 0) {
+      valorEfetivo = valorComNICPlanilha;
+    } else {
+      valorEfetivo = valorNominal * 3;
+    }
+  } else {
+    valorEfetivo = valorNominal;
+  }
+
+  // 3. Regra dos Dias 20 e 21
+  const diaInf = dataInf ? dataInf.getUTCDate() : null;
+  const isDia20e21 = (diaInf === 20 || diaInf === 21);
+
+  // 4. Prazos e SLA 24h
+  let dataEnvio = parseDateFlexible(raw.envio || raw['Data Envio Encarregado']);
+  let dataRetorno = parseDateFlexible(raw.retorno || raw['Data Retorno Assinatura']);
+  let dataDP = parseDateFlexible(raw.dp || raw['Data Protocolo DP'] || raw['Entregue ao DP']);
+
+  const obs = (raw.obs || raw['Observação'] || '').toString();
+  if(!dataEnvio){
+    const mEnv = obs.match(/(?:enviado|assinatura)[\s\w]*?(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i);
+    if(mEnv) dataEnvio = parseDateFlexible(mEnv[1]);
+  }
+  if(!dataRetorno && obs.toLowerCase().includes('retorno')){
+    const mRet = obs.match(/retorno[\s\w]*?(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i);
+    if(mRet) dataRetorno = parseDateFlexible(mRet[1]);
+  }
+
+  let horasColeta = null;
+  let slaStatus = 'Não Enviado';
+  if(dataEnvio){
+    const refFim = dataRetorno ? dataRetorno.getTime() : new Date('2026-09-02T12:00:00Z').getTime();
+    horasColeta = (refFim - dataEnvio.getTime()) / (1000 * 60 * 60);
+    if(!dataRetorno){
+      slaStatus = horasColeta > 24 ? 'Estourado' : 'Em Coleta';
+    } else {
+      slaStatus = horasColeta <= 24 ? 'No Prazo' : 'Estourado';
+    }
+  }
+
+  // 5. Etapa da Rastreabilidade
+  let etapa = '1. Notificação';
+  if(dataDP) etapa = '4. Protocolado no DP';
+  else if(dataRetorno) etapa = '3. Assinado';
+  else if(dataEnvio) etapa = '2. Com Encarregado';
+
+  let gestorNorm = (raw.gestor || raw['Gestor'] || 'Não informado').toString().trim();
+  if(gestorNorm.toUpperCase()==='IRON') gestorNorm='Iron Lima';
+  if(gestorNorm.toUpperCase()==='HIRLAN') gestorNorm='Hirlan';
+  if(gestorNorm.toUpperCase()==='RODRIGO') gestorNorm='Rodrigo';
+  if(gestorNorm.toUpperCase()==='BRUNA') gestorNorm='Bruna';
+  if(gestorNorm.toUpperCase()==='ALTAIR') gestorNorm='Altair';
+
+  let paNorm = (raw.pa || raw['PA'] || '-').toString().trim().toUpperCase();
+  if(!paNorm.startsWith('PA') && ['1','2','3','4'].includes(paNorm)) paNorm = 'PA' + paNorm;
+
+  return {
+    forId: raw.forId || raw['FOR'] || '—',
+    motorista: (raw.motorista || raw['Motorista'] || 'Não identificado').toString().trim().toUpperCase(),
+    mes: raw.mes || raw['Mês'],
+    ano: raw.ano || raw['Ano'] || 2026,
+    dataInf,
+    diaInf,
+    isDia20e21,
+    valorNominal,
+    valorComNICPlanilha,
+    valorEfetivo,
+    temNIC,
+    dataEnvio,
+    dataRetorno,
+    dataDP,
+    horasColeta,
+    slaStatus,
+    etapa,
+    gestor: gestorNorm,
+    pa: paNorm,
+    status: raw.status || raw['Status'] || 'Concluido'
+  };
+}
+
+/* ---------------- DADOS DEMONSTRATIVOS ---------------- */
+const DEMO_RECORDS = [
+  { forId:'FORMULTA-001', dataInf:'2026-05-25', mes:'Maio', ano:2026, motorista:'DANILO SILVA DA ROCHA', valor:293.47, valorComNIC:null, nic:'Não', gestor:'Josué', pa:'PA4', envio:'2026-07-07 08:00', retorno:'2026-07-07 16:00', dp:'2026-07-08', status:'Concluido' },
+  { forId:'FORMULTA-005', dataInf:'2026-04-14', mes:'Abril', ano:2026, motorista:'WELLINGTON SOUSA ARAUJO', valor:130.16, valorComNIC:390.48, nic:'Sim', gestor:'Iron Lima', pa:'PA1', envio:'2026-07-07 09:00', retorno:'2026-07-09 10:00', dp:'2026-07-10', status:'Demitido' },
+  { forId:'FORMULTA-032', dataInf:'2026-05-20', mes:'Maio', ano:2026, motorista:'BRUNO RODRIGUES DA SILVA', valor:195.23, valorComNIC:585.69, nic:'Sim', gestor:'Hirlan', pa:'PA3', envio:'2026-07-09 10:00', retorno:'2026-07-09 18:00', dp:'2026-07-11', status:'Concluido' },
+  { forId:'FORMULTA-036', dataInf:'2026-06-21', mes:'Junho', ano:2026, motorista:'RENATO MOREIRA DO NASCIMENTO', valor:130.16, valorComNIC:null, nic:'Não', gestor:'Rodrigo', pa:'PA4', envio:'2026-07-15 14:00', retorno:'2026-07-17 10:00', dp:'2026-07-21', status:'Concluido' },
+  { forId:'FORMULTA-038', dataInf:'2026-05-20', mes:'Maio', ano:2026, motorista:'JEFERSON NORONHA FERREIRA', valor:880.41, valorComNIC:2641.23, nic:'Sim', gestor:'Iron Lima', pa:'PA1', envio:'2026-07-16 08:00', retorno:'2026-07-16 17:00', dp:'2026-07-23', status:'Concluido' },
+  { forId:'FORMULTA-040', dataInf:'2026-06-21', mes:'Junho', ano:2026, motorista:'CELIO SOARES BANDEIRA', valor:293.47, valorComNIC:880.41, nic:'Sim', gestor:'Iron Lima', pa:'PA1', envio:'2026-07-16 11:00', retorno:'2026-07-18 15:00', dp:'2026-07-24', status:'Concluido' },
+  { forId:'FORMULTA-066', dataInf:'2026-07-20', mes:'Julho', ano:2026, motorista:'ALESANDRO EFICIO ROSSI INAGA', valor:293.47, valorComNIC:null, nic:'Não', gestor:'Bruna', pa:'PA2', envio:'2026-08-18 09:00', retorno:'2026-08-19 08:30', dp:'2026-08-21', status:'Concluido' },
+  { forId:'FORMULTA-082', dataInf:'2026-07-21', mes:'Julho', ano:2026, motorista:'MAXSUEL GOMES DO SANTOS', valor:293.47, valorComNIC:null, nic:'Não', gestor:'Altair', pa:'PA4', envio:'2026-08-27 10:00', retorno:null, dp:null, status:'Pendente' }
+];
+
+let RAW_ROWS = [];
+let MESES_ORDEM = [];
+let FILTERS = { mes:'Todos', gestor:'Todos', pa:'Todos', esp:'Todos', sla:'Todos' };
+
+/* ---------------- LEITURA DA PLANILHA GOOGLE SHEETS ---------------- */
+function getKey(row, wantedLower){ for(const k in row){ if(k.trim().toLowerCase()===wantedLower) return k; } return null; }
+function getVal(row, wantedLower){ const k=getKey(row,wantedLower); return k===null ? null : row[k]; }
+function parseNumberBR(v){
+  if(v==null || v==='') return 0;
+  if(typeof v==='number') return v;
+  let s=v.toString().trim().replace(/[^\d,.\-]/g, '');
+  if(s==='') return 0;
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',', '.'); 
+  else if(lastDot > lastComma) s = s.replace(/,/g,'');
+  const n=parseFloat(s); return isNaN(n) ? 0 : n;
+}
+
+function parseDateFlexible(v){
+  if(v instanceof Date) return v;
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return new Date(Date.UTC(1899,11,30) + Math.round(v*86400000));
+  const s = v.toString().trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if(m) {
+    let p1 = +m[1], p2 = +m[2], y = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : 2026;
+    if(p1 > 12) return new Date(Date.UTC(y, p2 - 1, p1));
+    else return new Date(Date.UTC(y, p1 - 1, p2));
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7TzNXg6OqTL4xpLQfPNd8uv4ziyl_J0EEgaVkcxjU_H0ahJqYZZStUhNxRzvLA/pub?gid=901832761&single=true&output=csv";
+
+function parseMultasWorkbook(wb){
+  const sheetName = wb.SheetNames.find(n=>n.toUpperCase().includes('CONTROLE DE MULTAS')) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rowsRaw = XLSX.utils.sheet_to_json(ws, {defval:null});
+  const rows = [];
+  rowsRaw.forEach(row=>{
+    const mot = getVal(row,'motorista') || getVal(row,'condutor') || getVal(row,'nome');
+    if(!mot) return;
+    const mesRaw = (getVal(row,'mês') || getVal(row,'mes') || '').toString().trim();
+    if(!mesRaw) return;
+    const mes = mesRaw.charAt(0).toUpperCase()+mesRaw.slice(1).toLowerCase();
+    
+    const enriched = enrichRow({
+      forId: getVal(row,'for'),
+      motorista: mot,
+      mes,
+      ano: parseInt(getVal(row,'ano')) || 2026,
+      dataInf: getVal(row,'data da infração'),
+      valor: getVal(row,'valor multa'),
+      valorComNIC: getVal(row,'valor com nic'),
+      nic: getVal(row,'nic'),
+      gestor: getVal(row,'gestor') || getVal(row,'encarregado'),
+      pa: getVal(row,'pa'),
+      envio: getVal(row,'data envio encarregado'),
+      retorno: getVal(row,'data retorno assinatura'),
+      dp: getVal(row,'data protocolo dp') || getVal(row,'entregue ao dp'),
+      obs: getVal(row,'observação'),
+      status: getVal(row,'status')
+    });
+    rows.push(enriched);
+  });
+  return { rows, validas: rows.length };
+}
+
+function loadFromSheet(){
+  if(!SHEET_CSV_URL){
+    showStatus('Link da planilha não configurado — mantendo dados locais.', 'err');
+    return;
+  }
+  showStatus('Sincronizando com Google Sheets...', 'ok');
+  const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  fetch(url, {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('Acesso à planilha recusado'); return r.text(); })
+    .then(csvText=>{
+      const wb = XLSX.read(csvText, {type:'string', raw:true});
+      const res = parseMultasWorkbook(wb);
+      applyData(res.rows, 'Google Sheets');
+    })
+    .catch(err=>{
+      showStatus('Planilha não acessada ('+err.message+'). Usando dados locais.', 'err');
+    });
+}
+
+function applyData(rows, fonte){
+  RAW_ROWS = rows;
+  MESES_ORDEM = MES_FULL.filter(m=>RAW_ROWS.some(r=>r.mes===m));
+  updateFilterOptions();
+  clearFilters();
+  document.getElementById('fonteLbl').textContent = 'Fonte: ' + fonte;
+  showStatus(`Base atualizada — ${rows.length} multas calculadas via regra NIC.`, 'ok');
+}
+
+function showStatus(msg, kind){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + kind;
+  clearTimeout(window._statusTimer);
+  window._statusTimer = setTimeout(()=> el.classList.remove('show'), 6000);
+}
+
+/* ---------------- MOTOR DE FILTRAGEM ---------------- */
+function rowsMatch(r){
+  const mMes = (FILTERS.mes==='Todos' || r.mes===FILTERS.mes);
+  const mGestor = (FILTERS.gestor==='Todos' || r.gestor===FILTERS.gestor);
+  const mPA = (FILTERS.pa==='Todos' || r.pa===FILTERS.pa);
+  const mEsp = (FILTERS.esp==='Todos' || (FILTERS.esp==='SIM' && r.isDia20e21) || (FILTERS.esp==='NAO' && !r.isDia20e21));
+  const mSla = (FILTERS.sla==='Todos' || r.slaStatus===FILTERS.sla);
+  return mMes && mGestor && mPA && mEsp && mSla;
+}
+function filteredRows(){ return RAW_ROWS.filter(rowsMatch); }
+
+function setFilter(dim, val){
+  FILTERS[dim] = val;
+  syncSelects();
+  renderAll();
+}
+function clearFilters(){
+  FILTERS = { mes:'Todos', gestor:'Todos', pa:'Todos', esp:'Todos', sla:'Todos' };
+  syncSelects();
+  renderAll();
+}
+function syncSelects(){
+  document.getElementById('fMes').value = FILTERS.mes;
+  document.getElementById('fGestor').value = FILTERS.gestor;
+  document.getElementById('fPA').value = FILTERS.pa;
+  document.getElementById('fEsp').value = FILTERS.esp;
+  document.getElementById('fSla').value = FILTERS.sla;
+  const anyActive = Object.values(FILTERS).some(v=>v!=='Todos');
+  document.getElementById('btnClearFilters').style.display = anyActive ? 'block' : 'none';
+}
+function updateFilterOptions(){
+  const fGestor = document.getElementById('fGestor');
+  const gestores = [...new Set(RAW_ROWS.map(r=>r.gestor))].filter(Boolean).sort();
+  fGestor.innerHTML = '<option value="Todos">Todos</option>' + gestores.map(g=>`<option value="${g}">${g}</option>`).join('');
+
+  const fPA = document.getElementById('fPA');
+  const pas = [...new Set(RAW_ROWS.map(r=>r.pa))].filter(p=>p!=='-').sort();
+  fPA.innerHTML = '<option value="Todos">Todos</option>' + pas.map(p=>`<option value="${p}">${p}</option>`).join('');
+
+  const fMes = document.getElementById('fMes');
+  fMes.innerHTML = '<option value="Todos">Todos</option>' + MESES_ORDEM.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+/* ---------------- CHARTS SVG ---------------- */
+function hbarChart(elId, labels, values, color){
+  const max = Math.max(...values, 1);
+  let html = `<div style="display:flex;flex-direction:column;gap:6px;justify-content:center;height:100%;overflow-y:auto;">`;
+  labels.forEach((lb, i)=>{
+    const pct = (values[i]/max)*100;
+    html += `<div style="display:grid;grid-template-columns:130px 1fr 38px;align-items:center;gap:8px;">
+      <div style="font-size:10.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${lb}">${lb}</div>
+      <div style="height:12px;background:#EEF1EF;border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
+      </div>
+      <div style="font-size:10.5px;font-weight:700;text-align:right;color:var(--green-dk);">${values[i]}</div>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById(elId).innerHTML = html;
+}
+
+function donutChart(elId, labels, values, colors){
+  const total = values.reduce((a,b)=>a+b, 0) || 1;
+  let acc=0, stops=[];
+  values.forEach((v,i)=>{
+    const s=(acc/total)*360; acc+=v; const e=(acc/total)*360;
+    stops.push(`${colors[i % colors.length]} ${s.toFixed(2)}deg ${e.toFixed(2)}deg`);
+  });
+  let legend = `<div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;">`;
+  labels.forEach((lb,i)=>{
+    const pct = ((values[i]/total)*100).toFixed(1);
+    legend += `<div style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px;gap:6px;">
+      <span style="display:flex;align-items:center;gap:5px;color:#5B6472;">
+        <span style="width:7px;height:7px;border-radius:2px;background:${colors[i % colors.length]};flex-shrink:0;"></span>${lb}
+      </span>
+      <span style="color:#1F2937;font-weight:700;">${values[i]} (${pct}%)</span>
+    </div>`;
+  });
+  legend += `</div>`;
+
+  const html = `<div style="display:flex;align-items:center;gap:14px;height:100%;">
+    <div style="width:100px;height:100px;border-radius:50%;flex-shrink:0;position:relative;background:conic-gradient(${stops.join(', ')});">
+      <div style="position:absolute;inset:18px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+        <div style="font-size:17px;font-weight:800;color:var(--ink);">${total}</div>
+        <div style="font-size:8px;color:#9AA2AC;text-transform:uppercase;">Multas</div>
+      </div>
+    </div>
+    ${legend}
+  </div>`;
+  document.getElementById(elId).innerHTML = html;
+}
+
+function lineChart(elId, labels, values){
+  const W=460,H=165,padL=18,padR=16,padT=22,padB=20;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const n=labels.length;
+  const max=Math.max(...values, 1)*1.25, min=0;
+  const step=n>1 ? plotW/(n-1) : 0;
+  let svg=`<svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`;
+  for(let g=0;g<=2;g++){ const gy=padT+plotH-(plotH/2)*g; svg+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#EEF1EF" stroke-width="1"/>`; }
+  const pts=values.map((v,i)=>[padL+step*i, padT+plotH-((v-min)/(max-min))*plotH, v]);
+  svg+=`<polyline points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--green)" stroke-width="2.6" stroke-linejoin="round"/>`;
+  pts.forEach((p,i)=>{
+    svg+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="var(--green)"/>`;
+    svg+=`<text x="${p[0].toFixed(1)}" y="${(p[1]-7).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--green-dk)" font-weight="700">${p[2]}</text>`;
+    svg+=`<text x="${p[0].toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9.5" fill="#5B6472">${labels[i]}</text>`;
+  });
+  svg+='</svg>';
+  document.getElementById(elId).innerHTML=svg;
+}
+
+/* ---------------- RENDERIZAÇÃO ---------------- */
+function renderAll(){
+  const rows = filteredRows();
+  const total = rows.length;
+  
+  // Total com a regra condicional de NIC aplicada
+  const vEfetivoDP = rows.reduce((s,r)=>s + r.valorEfetivo, 0);
+  const vNominal = rows.reduce((s,r)=>s + r.valorNominal, 0);
+  const vAcrescimoNIC = Math.max(vEfetivoDP - vNominal, 0);
+  const multasEsp = rows.filter(r=>r.isDia20e21).length;
+
+  const multasComSla = rows.filter(r=>r.slaStatus==='No Prazo' || r.slaStatus==='Estourado');
+  const noPrazo = rows.filter(r=>r.slaStatus==='No Prazo').length;
+  const slaPct = multasComSla.length ? ((noPrazo / multasComSla.length)*100).toFixed(0) : 100;
+
+  // Atualiza os Cards
+  document.getElementById('k-total').textContent = fmtInt(total);
+  document.getElementById('k-valor-dp').textContent = fmtBRL(vEfetivoDP);
+  document.getElementById('k-acrescimo-nic').textContent = fmtBRL(vAcrescimoNIC);
+  document.getElementById('k-dias-esp').textContent = fmtInt(multasEsp);
+  document.getElementById('k-sla-pct').textContent = slaPct + '%';
+
+  const ultimoMes = MESES_ORDEM[MESES_ORDEM.length-1] || 'Junho';
+  document.getElementById('hdr-mes').textContent = FILTERS.mes==='Todos' ? ultimoMes : FILTERS.mes;
+  document.getElementById('hdr-sub-period').textContent = MESES_ORDEM.length>1 ? `${MESES_ORDEM[0]} a ${ultimoMes}` : ultimoMes;
+  document.getElementById('periodo-analisado').innerHTML = FILTERS.mes==='Todos'
+    ? (MESES_ORDEM.length>1 ? `${MESES_ORDEM[0]} a<br>${ultimoMes}` : ultimoMes)
+    : FILTERS.mes;
+
+  // --- ABA 1: VISÃO GERAL ---
+  const condutoresMap = {};
+  rows.forEach(r=>{ condutoresMap[r.motorista] = (condutoresMap[r.motorista]||0)+1; });
+  const condutoresSorted = Object.keys(condutoresMap).map(m=>({ motorista:m, qtd:condutoresMap[m] })).sort((a,b)=>b.qtd-a.qtd);
+  hbarChart('c-hbar-motoristas', condutoresSorted.slice(0,5).map(c=>c.motorista), condutoresSorted.slice(0,5).map(c=>c.qtd), 'var(--green)');
+
+  const countSla = { 'No Prazo': rows.filter(r=>r.slaStatus==='No Prazo').length, 'Estourado': rows.filter(r=>r.slaStatus==='Estourado').length, 'Em Coleta': rows.filter(r=>r.slaStatus==='Em Coleta').length };
+  donutChart('c-donut-sla', Object.keys(countSla), Object.values(countSla), ['#1B6B45','#DC2626','#F2B705']);
+
+  const mesesExibir = FILTERS.mes==='Todos' ? MESES_ORDEM : [FILTERS.mes];
+  lineChart('c-linha-evolucao', mesesExibir.map(m=>MES_ABBR[m]||m.slice(0,3)), mesesExibir.map(m=>rows.filter(r=>r.mes===m).length));
+
+  // Tabela Condutores (Considerando valor efetivo)
+  let tblCondHtml = condutoresSorted.map(c=>{
+    const rMot = rows.filter(r=>r.motorista===c.motorista);
+    const espCount = rMot.filter(r=>r.isDia20e21).length;
+    const totEfetivo = rMot.reduce((s,r)=>s+r.valorEfetivo,0);
+    const nicCount = rMot.filter(r=>r.temNIC).length;
+    return `<tr>
+      <td><b>${c.motorista}</b></td>
+      <td class="num">${c.qtd}</td>
+      <td class="num">${nicCount > 0 ? `<span class="badge-tag badge-red">${nicCount} NIC</span>` : '—'}</td>
+      <td class="num">${espCount > 0 ? `<span class="badge-tag badge-gold">${espCount} Dias 20/21</span>` : '—'}</td>
+      <td class="num" style="font-weight:700;">${fmtBRL(totEfetivo)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tbl-condutores').innerHTML = `<table class="rsm">
+    <thead><tr><th>Condutor</th><th style="text-align:right">Multas</th><th style="text-align:right">Com NIC</th><th style="text-align:right">Dias 20 e 21</th><th style="text-align:right">Total Efetivo DP</th></tr></thead>
+    <tbody>${tblCondHtml || '<tr><td colspan="5">Nenhum registro.</td></tr>'}</tbody>
+  </table>`;
+
+  // Tabela PA
+  const paMap = {};
+  rows.forEach(r=>{
+    if(!paMap[r.pa]) paMap[r.pa] = { qtd:0, valor:0 };
+    paMap[r.pa].qtd++; paMap[r.pa].valor += r.valorEfetivo;
+  });
+  let tblPaHtml = Object.keys(paMap).sort().map(p=>`
+    <tr><td><b>${p}</b></td><td class="num">${paMap[p].qtd}</td><td class="num">${fmtBRL(paMap[p].valor)}</td></tr>
+  `).join('');
+  document.getElementById('tbl-pa').innerHTML = `<table class="rsm">
+    <thead><tr><th>PA</th><th style="text-align:right">Qtd Multas</th><th style="text-align:right">Total Efetivo (R$)</th></tr></thead>
+    <tbody>${tblPaHtml || '<tr><td colspan="3">Nenhum registro.</td></tr>'}</tbody>
+  </table>`;
+
+  // Insights
+  const topCondutor = condutoresSorted[0] || { motorista:'—', qtd:0 };
+  document.getElementById('insights-list').innerHTML = `
+    <div class="insight-item"><div class="ic">${ICONS.people}</div><p>Condutor mais autuado: <b>${topCondutor.motorista}</b> com <b>${topCondutor.qtd}</b> infrações.</p></div>
+    <div class="insight-item"><div class="ic">${ICONS.dollar}</div><p>Regra NIC aplicada: gerou <b>${fmtBRL(vAcrescimoNIC)}</b> em penalidades adicionais.</p></div>
+    <div class="insight-item"><div class="ic">${ICONS.calendar}</div><p><b>${multasEsp}</b> infrações caíram nos <b>dias 20 e 21</b> (regra especial de DP).</p></div>
+    <div class="insight-item"><div class="ic">${ICONS.clock}</div><p>SLA de 24h dos encarregados: <b>${slaPct}%</b> das assinaturas colhidas no prazo.</p></div>
+  `;
+
+  // --- ABA 2: REGRA ESPECIAL DIAS 20 E 21 ---
+  const rowsEsp = rows.filter(r=>r.isDia20e21);
+  const espMotMap = {};
+  rowsEsp.forEach(r=>{
+    if(!espMotMap[r.motorista]) espMotMap[r.motorista] = { qtd:0, valor:0, gestor:r.gestor };
+    espMotMap[r.motorista].qtd++; espMotMap[r.motorista].valor += r.valorEfetivo;
+  });
+  let tblEspMotHtml = Object.keys(espMotMap).map(m=>`
+    <tr><td><b>${m}</b></td><td>${espMotMap[m].gestor}</td><td class="num">${espMotMap[m].qtd}</td><td class="num">${fmtBRL(espMotMap[m].valor)}</td></tr>
+  `).join('');
+  document.getElementById('tbl-esp-motoristas').innerHTML = `<table class="rsm">
+    <thead><tr><th>Condutor</th><th>Encarregado</th><th style="text-align:right">Qtd</th><th style="text-align:right">Valor Efetivo</th></tr></thead>
+    <tbody>${tblEspMotHtml || '<tr><td colspan="4">Nenhum registro nos dias 20 e 21.</td></tr>'}</tbody>
+  </table>`;
+
+  const gestorEspMap = {};
+  rowsEsp.forEach(r=>{ gestorEspMap[r.gestor] = (gestorEspMap[r.gestor]||0)+1; });
+  hbarChart('c-hbar-esp-gestores', Object.keys(gestorEspMap), Object.values(gestorEspMap), 'var(--navy)');
+
+  let tblEspDetHtml = rowsEsp.map(r=>`
+    <tr>
+      <td>${r.forId}</td>
+      <td>${r.dataInf ? r.dataInf.toLocaleDateString('pt-BR') : '—'}</td>
+      <td><b>${r.motorista}</b></td>
+      <td>${r.gestor}</td>
+      <td>${r.pa}</td>
+      <td class="num">${fmtBRL(r.valorNominal)}</td>
+      <td class="num" style="font-weight:700;color:${r.temNIC?'var(--red)':'var(--ink)'};">${fmtBRL(r.valorEfetivo)}</td>
+      <td><span class="badge-tag ${r.temNIC?'badge-red':'badge-green'}">${r.temNIC?'NIC Aplicado':'Normal'}</span></td>
+    </tr>
+  `).join('');
+  document.getElementById('tbl-esp-detalhe').innerHTML = `<table class="rsm">
+    <thead><tr><th>FOR</th><th>Data Infração</th><th>Motorista</th><th>Encarregado</th><th>PA</th><th style="text-align:right">Valor Nominal</th><th style="text-align:right">Valor Efetivo DP</th><th>Regra</th></tr></thead>
+    <tbody>${tblEspDetHtml || '<tr><td colspan="8">Nenhuma ocorrência encontrada.</td></tr>'}</tbody>
+  </table>`;
+
+  // --- ABA 3: RASTREABILIDADE & AUDITORIA DP ---
+  const gestorSlaMap = {};
+  rows.forEach(r=>{
+    if(!gestorSlaMap[r.gestor]) gestorSlaMap[r.gestor] = { total:0, noPrazo:0, estourado:0 };
+    gestorSlaMap[r.gestor].total++;
+    if(r.slaStatus==='No Prazo') gestorSlaMap[r.gestor].noPrazo++;
+    if(r.slaStatus==='Estourado') gestorSlaMap[r.gestor].estourado++;
+  });
+  let tblGestSlaHtml = Object.keys(gestorSlaMap).map(g=>{
+    const d = gestorSlaMap[g];
+    const pct = ((d.noPrazo/d.total)*100).toFixed(0);
+    return `<tr>
+      <td><b>${g}</b></td>
+      <td class="num">${d.total}</td>
+      <td class="num" style="color:var(--green);font-weight:700;">${d.noPrazo}</td>
+      <td class="num" style="color:var(--red);font-weight:700;">${d.estourado}</td>
+      <td class="num">${pct}%</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tbl-gestores-sla').innerHTML = `<table class="rsm">
+    <thead><tr><th>Encarregado</th><th style="text-align:right">Total</th><th style="text-align:right">No Prazo (<=24h)</th><th style="text-align:right">Estourado</th><th style="text-align:right">% Conformidade</th></tr></thead>
+    <tbody>${tblGestSlaHtml || '<tr><td colspan="5">Nenhum dado.</td></tr>'}</tbody>
+  </table>`;
+
+  const rowsNic = rows.filter(r=>r.temNIC);
+  let tblNicHtml = rowsNic.map(r=>`
+    <tr>
+      <td>${r.forId}</td>
+      <td><b>${r.motorista}</b></td>
+      <td>${r.gestor}</td>
+      <td class="num">${fmtBRL(r.valorNominal)}</td>
+      <td class="num" style="color:var(--red);font-weight:700;">${fmtBRL(r.valorEfetivo)}</td>
+      <td><span class="badge-tag badge-red">NIC Ativo</span></td>
+    </tr>
+  `).join('');
+  document.getElementById('tbl-nic-detalhe').innerHTML = `<table class="rsm">
+    <thead><tr><th>FOR</th><th>Motorista</th><th>Encarregado</th><th style="text-align:right">Valor Original</th><th style="text-align:right">Valor Cobrado DP</th><th>Status</th></tr></thead>
+    <tbody>${tblNicHtml || '<tr><td colspan="6">Nenhuma multa com incidência de NIC.</td></tr>'}</tbody>
+  </table>`;
+
+  let tblFluxoHtml = rows.map(r=>`
+    <tr>
+      <td>${r.forId}</td>
+      <td><b>${r.motorista}</b></td>
+      <td>${r.gestor}</td>
+      <td class="num">${fmtBRL(r.valorEfetivo)}</td>
+      <td>${r.dataEnvio ? r.dataEnvio.toLocaleDateString('pt-BR') : '—'}</td>
+      <td>${r.dataRetorno ? r.dataRetorno.toLocaleDateString('pt-BR') : '<span style="color:var(--gold);font-weight:700;">Pendente</span>'}</td>
+      <td>${r.dataDP ? r.dataDP.toLocaleDateString('pt-BR') : '—'}</td>
+      <td><span class="badge-tag ${r.slaStatus==='No Prazo'?'badge-green':(r.slaStatus==='Estourado'?'badge-red':'badge-gold')}">${r.slaStatus}</span></td>
+      <td><b>${r.etapa}</b></td>
+    </tr>
+  `).join('');
+  document.getElementById('tbl-fluxo-auditoria').innerHTML = `<table class="rsm">
+    <thead><tr><th>FOR</th><th>Motorista</th><th>Encarregado</th><th style="text-align:right">Valor DP</th><th>Envio Líder</th><th>Retorno Assinado</th><th>Protocolo DP</th><th>SLA 24h</th><th>Etapa Atual</th></tr></thead>
+    <tbody>${tblFluxoHtml || '<tr><td colspan="9">Nenhum dado encontrado.</td></tr>'}</tbody>
+  </table>`;
+}
+
+/* ---------------- CONTROLE DE ABAS ---------------- */
+document.querySelectorAll('.page-tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.page-tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page-content').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.page).classList.add('active');
+  });
+});
+
+/* ---------------- LISTENERS ---------------- */
+document.getElementById('fMes').addEventListener('change', e=> setFilter('mes', e.target.value));
+document.getElementById('fGestor').addEventListener('change', e=> setFilter('gestor', e.target.value));
+document.getElementById('fPA').addEventListener('change', e=> setFilter('pa', e.target.value));
+document.getElementById('fEsp').addEventListener('change', e=> setFilter('esp', e.target.value));
+document.getElementById('fSla').addEventListener('change', e=> setFilter('sla', e.target.value));
+document.getElementById('btnClearFilters').addEventListener('click', clearFilters);
+document.getElementById('btnRefresh').addEventListener('click', loadFromSheet);
+
+// Inicialização
+applyData(DEMO_RECORDS.map(enrichRow), 'Dados Locais Iniciais');
+loadFromSheet();
+</script>
+
+</body>
+</html>
