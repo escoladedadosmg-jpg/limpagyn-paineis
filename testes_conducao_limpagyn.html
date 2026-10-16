@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consórcio LimpaGyn · Testes de Condução</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --green:#1B6B45; --green-dk:#124D32; --green-lt:#E7F2EC;
+    --navy:#1E3A5F; --gray:#9CA3AF; --gold:#F2B705; --red:#DC2626; --lgray:#C7CDD4;
+    --ink:#1F2937; --ink-soft:#5B6472; --ink-faint:#9AA2AC;
+    --bg:#F2F4F3; --card:#FFFFFF; --border:#E4E8E6;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:#000; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:var(--ink); padding:28px 14px; }
+  .stage-label{ max-width:1600px; margin:0 auto 10px; color:#5C6265; font-size:12.5px; display:flex; justify-content:space-between; }
+  .stage-label a{ color:#8A9196; text-decoration:none; }
+  .stage-label a:hover{ color:#C7CDD4; }
+
+  .stage{ width:100%; max-width:1600px; margin:0 auto; aspect-ratio:16/9; position:relative; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.5); }
+  .canvas{ width:1600px; height:900px; position:absolute; top:0; left:0; transform-origin:top left; background:var(--bg); display:flex; flex-direction:column; padding:22px 26px; }
+
+  /* Header */
+  .hdr{ display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; flex-shrink:0; position:relative; }
+  .hdr-left{ display:flex; align-items:center; gap:16px; }
+  .logo-badge{ width:54px; height:54px; border-radius:50%; background:conic-gradient(var(--green) 0deg 300deg, var(--green-lt) 300deg 360deg); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .logo-badge::after{ content:''; width:36px; height:36px; border-radius:50%; background:var(--bg); }
+  .hdr-title{ font-size:28px; font-weight:800; letter-spacing:0.01em; color:var(--ink); line-height:1; }
+  .hdr-sub{ font-size:13.5px; color:var(--ink-soft); margin-top:5px; }
+  .hdr-right{ display:flex; align-items:center; gap:22px; text-align:right; }
+  .hdr-right .lbl{ font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); font-weight:700; }
+  .hdr-right .val{ font-size:14px; font-weight:700; color:var(--green-dk); margin-top:2px; }
+  .btns{ display:flex; gap:6px; margin-top:4px; justify-content:flex-end; }
+  .btn-upload{ font-family:inherit; font-size:12px; font-weight:700; padding:8px 16px; border-radius:6px; border:none; background:var(--green); color:#fff; cursor:pointer; }
+  .btn-upload:hover{ background:var(--green-dk); }
+  .btn-ghost{ background:#fff; color:var(--green-dk); border:1px solid #BFE0CE; }
+  .btn-ghost:hover{ background:var(--green-lt); }
+  .btn-navy{ background:var(--navy); }
+  .btn-navy:hover{ background:#15294A; }
+  .btn-upload:disabled{ opacity:.6; cursor:wait; }
+  .status-msg{ position:absolute; top:84px; right:26px; max-width:460px; font-size:12px; padding:8px 15px; border-radius:6px; display:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); z-index:60; }
+  .status-msg.show{ display:block; }
+  .status-msg.ok{ background:#E7F2EC; color:var(--green-dk); border:1px solid #BFE0CE; }
+  .status-msg.err{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+
+  /* PDF popover */
+  .pdf-pop{ position:absolute; top:74px; right:170px; width:300px; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.16); padding:14px 16px; z-index:70; display:none; text-align:left; }
+  .pdf-pop.show{ display:block; }
+  .pdf-pop h5{ margin:0 0 4px; font-size:12px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; }
+  .pdf-pop p{ margin:0 0 10px; font-size:11px; color:var(--ink-soft); line-height:1.4; }
+  .pdf-pop .row{ display:flex; gap:8px; }
+  .pdf-pop select{ flex:1; font-family:inherit; font-size:12px; padding:7px 9px; border-radius:5px; border:1px solid var(--border); }
+
+  /* KPI Cards */
+  .kpi-row{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; flex-shrink:0; margin-bottom:12px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:11px 14px 10px 16px; position:relative; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .kpi-card::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--accent, var(--green)); }
+  .kpi-card .lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); font-weight:700; }
+  .kpi-card .val{ font-size:26px; font-weight:800; color:var(--ink); margin-top:3px; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .kpi-card .val small{ font-size:14px; color:var(--ink-faint); font-weight:700; margin-left:6px; }
+  .kpi-card .sub{ font-size:10.5px; color:var(--ink-faint); margin-top:3px; font-weight:600; }
+  .kpi-card .sub b{ color:var(--ink-soft); }
+
+  /* Page Tabs Bar */
+  .page-tabs-bar{ display:flex; gap:6px; padding:0 0 10px; flex-shrink:0; }
+  .page-tab-btn{ font-family:inherit; font-size:12px; font-weight:700; padding:7px 16px; border-radius:6px; border:1px solid var(--border); background:#E8ECE9; color:var(--ink-soft); cursor:pointer; }
+  .page-tab-btn.active{ background:var(--green); color:#fff; border-color:var(--green); }
+
+  /* Body Layout */
+  .body{ flex:1; min-height:0; display:grid; grid-template-columns:195px 1fr; gap:14px; }
+
+  /* Sidebar */
+  .sidebar{ display:flex; flex-direction:column; gap:10px; min-height:0; }
+  .side-title{ font-size:12px; font-weight:800; letter-spacing:0.04em; color:var(--ink); }
+  .filter-block{ display:flex; flex-direction:column; gap:4px; }
+  .filter-lbl{ font-size:10px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.03em; }
+  select.filter-select{ width:100%; font-family:inherit; font-size:12px; padding:6px 9px; border-radius:5px; border:1px solid var(--border); background:var(--card); color:var(--ink); }
+  select.filter-select.on{ border-color:var(--green); background:var(--green-lt); color:var(--green-dk); font-weight:700; }
+  .period-box{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:11px; text-align:center; margin-top:auto; }
+  .period-box .plbl{ font-size:10px; font-weight:700; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .period-box .pval{ font-size:13.5px; font-weight:700; color:var(--green-dk); line-height:1.4; }
+  .clear-link{ display:none; font-size:11px; font-weight:700; color:var(--green-dk); cursor:pointer; text-decoration:underline; }
+
+  /* Content Views */
+  .main-wrap{ min-height:0; display:flex; flex-direction:column; }
+  .page-content{ display:none; min-height:0; height:100%; }
+  .page-content.active{ display:grid; }
+  #page-geral{ grid-template-rows:1.15fr 1fr 66px; gap:10px; }
+  #page-escolinha{ grid-template-rows:1.3fr 0.7fr; gap:10px; }
+  #page-banco{ grid-template-rows:auto 1fr; gap:10px; }
+
+  .row3{ display:grid; grid-template-columns:1.25fr 0.9fr 1fr; gap:10px; min-height:0; }
+  .row3e{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; min-height:0; }
+
+  .tile{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px 8px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .tile h4{ margin:0 0 6px; font-size:11px; font-weight:800; letter-spacing:0.04em; color:var(--ink); text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .tile h4 .hint{ font-size:9.5px; font-weight:600; color:var(--ink-faint); text-transform:none; letter-spacing:0; }
+  .tile-body{ flex:1; min-height:0; overflow:hidden; }
+  .scroll{ overflow-y:auto; }
+
+  /* Legend */
+  .legend{ display:flex; gap:14px; font-size:10px; color:var(--ink-soft); }
+  .legend span{ display:flex; align-items:center; gap:5px; }
+  .legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  /* Month columns chart */
+  .mcols{ display:flex; align-items:stretch; gap:10px; height:100%; padding-top:4px; }
+  .mcol{ flex:1; display:flex; flex-direction:column; align-items:center; min-width:0; cursor:pointer; border-radius:6px; padding:2px 0 0; }
+  .mcol:hover{ background:#F6F8F7; }
+  .mcol.sel{ background:var(--green-lt); }
+  .mcol .tot{ font-size:12px; font-weight:800; color:var(--ink); margin-bottom:3px; }
+  .mcol .stack{ flex:1; width:56%; max-width:48px; display:flex; flex-direction:column; justify-content:flex-end; }
+  .mcol .stack div{ width:100%; }
+  .mcol .stack div:first-child{ border-radius:3px 3px 0 0; }
+  .mcol .mlbl{ font-size:10.5px; color:var(--ink-soft); margin-top:5px; font-weight:600; }
+  .mcol .rate{ font-size:11px; font-weight:800; color:var(--green-dk); margin-top:1px; }
+
+  /* HBar */
+  .hb-list{ display:flex; flex-direction:column; gap:3px; justify-content:center; min-height:100%; }
+  .hb-row{ display:grid; grid-template-columns:1fr 54px; gap:10px; align-items:center; padding:3px 4px; border-radius:4px; }
+  .hb-row.click{ cursor:pointer; }
+  .hb-row.click:hover{ background:#F6F8F7; }
+  .hb-row.sel{ background:var(--green-lt); }
+  .hb-lbl{ font-size:10.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px; }
+  .hb-lbl span{ color:var(--ink-faint); }
+  .hb-track{ height:9px; background:#EEF1EF; border-radius:3px; overflow:hidden; }
+  .hb-fill{ height:100%; border-radius:3px; }
+  .hb-val{ font-size:15px; font-weight:800; text-align:right; color:var(--ink); line-height:1; }
+  .hb-val small{ display:block; font-size:9.5px; color:var(--ink-faint); font-weight:700; margin-top:2px; }
+
+  /* Donut legend rows */
+  .dl-row{ display:flex; align-items:center; justify-content:space-between; font-size:11px; gap:6px; padding:4px 5px; border-radius:4px; cursor:pointer; }
+  .dl-row:hover{ background:#F6F8F7; }
+  .dl-row.sel{ background:var(--green-lt); }
+
+  /* Big-number stats */
+  .stats{ display:flex; flex-direction:column; justify-content:center; gap:8px; height:100%; }
+  .stat{ display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 12px; padding:9px 12px; border-radius:6px; background:#F7F9F8; border-left:4px solid var(--c, var(--green)); }
+  .stat .nm{ font-size:11px; font-weight:800; color:var(--ink); }
+  .stat .ds{ font-size:10px; color:var(--ink-soft); }
+  .stat .n{ grid-column:2; grid-row:1 / span 2; font-size:26px; font-weight:800; line-height:1; text-align:right; font-variant-numeric:tabular-nums; }
+  .stat .n small{ font-size:12px; color:var(--ink-faint); font-weight:700; margin-left:4px; }
+  .stat.click{ cursor:pointer; }
+  .stat.click:hover{ background:#EEF3F0; }
+  .stat.sel{ background:var(--green-lt); }
+
+  /* Escolinha situation strip */
+  .sit-wrap{ display:grid; grid-template-columns:repeat(5,1fr) 190px; gap:10px; height:100%; align-items:stretch; }
+  .sit{ border-radius:8px; background:#F7F9F8; border-top:4px solid var(--c); padding:12px 14px; display:flex; flex-direction:column; justify-content:center; }
+  .sit .n{ font-size:34px; font-weight:800; line-height:1; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .sit .nm{ font-size:11px; font-weight:800; margin-top:6px; color:var(--ink); text-transform:uppercase; letter-spacing:.03em; }
+  .sit .ds{ font-size:10px; color:var(--ink-soft); margin-top:2px; }
+  .sit-cta{ display:flex; flex-direction:column; justify-content:center; gap:8px; padding:0 4px; }
+  .sit-cta p{ margin:0; font-size:11px; color:var(--ink-soft); line-height:1.4; }
+
+  /* Funnel */
+  .fun{ display:flex; flex-direction:column; gap:8px; height:100%; justify-content:center; }
+  .fun-row{ display:grid; grid-template-columns:128px 1fr 74px; align-items:center; gap:8px; }
+  .fun-lbl{ font-size:11px; font-weight:700; color:var(--ink); }
+  .fun-track{ height:26px; display:flex; justify-content:center; }
+  .fun-bar{ height:100%; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12.5px; font-weight:800; min-width:28px; }
+  .fun-pct{ font-size:10px; color:var(--ink-faint); font-weight:700; text-align:right; }
+  .fun-pct b{ color:var(--green-dk); }
+
+  /* Banco de dados */
+  .toolbar{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:12px; }
+  .search{ flex:0 0 420px; position:relative; }
+  .search input{ width:100%; font-family:inherit; font-size:13px; padding:9px 34px 9px 12px; border-radius:6px; border:1px solid var(--border); background:#F7F9F8; color:var(--ink); outline:none; }
+  .search input:focus{ border-color:var(--green); background:#fff; box-shadow:0 0 0 3px rgba(27,107,69,.12); }
+  .search .x{ position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:none; font-size:16px; color:var(--ink-faint); cursor:pointer; display:none; padding:2px 6px; }
+  .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{ font-family:inherit; font-size:11px; font-weight:700; padding:6px 11px; border-radius:20px; border:1px solid var(--border); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .chip:hover{ border-color:#BFCBC4; }
+  .chip.on{ background:var(--green); border-color:var(--green); color:#fff; }
+  .chip .c{ opacity:.7; margin-left:4px; }
+  .tb-count{ margin-left:auto; font-size:11px; color:var(--ink-soft); white-space:nowrap; }
+  .tb-count b{ color:var(--ink); font-size:14px; }
+
+  /* Tables */
+  table.rsm{ width:100%; border-collapse:collapse; font-size:11px; }
+  table.rsm th{ background:#EDF3EF; text-align:left; padding:6px 8px; font-weight:700; color:var(--ink-soft); font-size:9.5px; text-transform:uppercase; position:sticky; top:0; z-index:1; }
+  table.rsm td{ padding:5px 8px; border-bottom:1px solid var(--border); color:var(--ink); }
+  table.rsm td.num, table.rsm th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  table.rsm td.nw{ white-space:nowrap; }
+  table.rsm mark{ background:#FEF3C7; color:inherit; padding:0 1px; border-radius:2px; }
+  .badge-tag{ font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; display:inline-block; white-space:nowrap; }
+  .badge-red{ background:#FCEBEA; color:#8A2A20; border:1px solid #F2C0BB; }
+  .badge-green{ background:#E7F2EC; color:#124D32; border:1px solid #BFE0CE; }
+  .badge-gold{ background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; }
+  .badge-navy{ background:#E6ECF3; color:#1E3A5F; border:1px solid #C3D0DF; }
+  .badge-gray{ background:#F1F3F5; color:#5B6472; border:1px solid #DDE1E5; }
+  .muted{ color:var(--ink-faint); }
+
+  /* Insights Band */
+  .insights-band{ background:var(--card); border:1px solid var(--border); border-radius:8px; display:grid; grid-template-columns:130px 1fr; overflow:hidden; }
+  .insights-head{ background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; padding:8px; }
+  .insights-head span{ font-size:11px; font-weight:800; text-align:center; letter-spacing:0.04em; line-height:1.35; }
+  .insights-list{ display:grid; grid-template-columns:repeat(4,1fr); padding:8px 6px; align-items:center; }
+  .insight-item{ padding:0 12px; border-left:1px solid var(--border); }
+  .insight-item:first-child{ border-left:none; }
+  .insight-item p{ margin:0; font-size:11px; line-height:1.35; color:var(--ink); }
+  .insight-item b{ color:var(--green-dk); }
+
+  .empty{ height:100%; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--ink-faint); padding:10px; }
+  footer{ text-align:center; font-size:10.5px; color:var(--ink-faint); padding-top:6px; flex-shrink:0; }
+
+  /* ============ RELATÓRIO PDF (A4 paisagem, fora da tela) ============ */
+  #report{ position:fixed; left:-20000px; top:0; width:1123px; height:794px; background:#fff; color:var(--ink); padding:34px 40px 26px; display:flex; flex-direction:column; gap:16px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  .rp-head{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:3px solid var(--green); padding-bottom:12px; }
+  .rp-eyebrow{ font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--ink-soft); }
+  .rp-title{ font-size:24px; font-weight:800; margin-top:4px; }
+  .rp-month{ font-size:30px; font-weight:800; color:var(--green-dk); text-align:right; line-height:1; }
+  .rp-meta{ font-size:10px; color:var(--ink-faint); text-align:right; margin-top:6px; }
+  .rp-kpis{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; }
+  .rp-kpi{ border:1px solid var(--border); border-left:4px solid var(--c, var(--green)); border-radius:6px; padding:10px 12px; }
+  .rp-kpi .l{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); }
+  .rp-kpi .v{ font-size:28px; font-weight:800; margin-top:4px; line-height:1; }
+  .rp-kpi .v small{ font-size:13px; color:var(--ink-faint); margin-left:4px; }
+  .rp-kpi .s{ font-size:9.5px; color:var(--ink-faint); font-weight:600; margin-top:4px; }
+  .rp-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; flex:1; min-height:0; }
+  .rp-box{ border:1px solid var(--border); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; min-height:0; }
+  .rp-box h6{ margin:0; font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+  .rp-line{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; font-size:11px; }
+  .rp-line .t{ height:7px; background:#EEF1EF; border-radius:3px; overflow:hidden; margin-top:3px; }
+  .rp-line .t div{ height:100%; border-radius:3px; }
+  .rp-line b{ font-size:13px; }
+  .rp-line b small{ font-size:9.5px; color:var(--ink-faint); margin-left:3px; }
+  .rp-split{ display:flex; height:16px; border-radius:4px; overflow:hidden; }
+  .rp-mini{ display:flex; gap:8px; align-items:flex-end; height:110px; }
+  .rp-mini .c{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; }
+  .rp-mini .b{ flex:1; width:60%; display:flex; flex-direction:column; justify-content:flex-end; }
+  .rp-mini .b div{ width:100%; }
+  .rp-mini .ml{ font-size:9.5px; color:var(--ink-soft); margin-top:4px; font-weight:600; }
+  .rp-mini .mr{ font-size:10px; font-weight:800; color:var(--green-dk); }
+  .rp-mini .mc.cur .ml{ color:var(--ink); font-weight:800; }
+  .rp-notes{ background:#F7F9F8; border-radius:6px; padding:10px 14px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; font-size:10.5px; line-height:1.4; }
+  .rp-notes b{ color:var(--green-dk); }
+  .rp-foot{ display:flex; justify-content:space-between; font-size:9px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="stage-label"><span>Consórcio LimpaGyn · Testes de Condução &amp; Projeto Escolinha · 1600×900 (16:9)</span><a href="index.html">← Central de Painéis</a></div>
+
+<div class="stage"><div class="canvas">
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="logo-badge"></div>
+      <div>
+        <div class="hdr-title">TESTES DE CONDUÇÃO</div>
+        <div class="hdr-sub">Avaliação teórica e prática de motoristas &amp; Projeto Escolinha&nbsp;&nbsp;|&nbsp;&nbsp;<span id="hdr-sub-period">Carregando dados...</span></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div>
+        <div class="lbl" id="fonteLbl">Fonte: dados de exemplo</div>
+        <div class="btns">
+          <button class="btn-upload btn-navy" id="btnPdf" title="Gerar o relatório de um mês em PDF">Relatório PDF</button>
+          <button class="btn-upload btn-ghost" id="btnFile" title="Abrir a planilha de testes (.xlsx ou .csv) salva no computador">Carregar planilha</button>
+          <button class="btn-upload" id="btnRefresh" title="Buscar a versão mais recente no Google Sheets">Atualizar agora</button>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
+      <div>
+        <div class="lbl">Mês de Referência</div>
+        <div class="val" id="hdr-mes">—</div>
+      </div>
+    </div>
+    <div class="pdf-pop" id="pdfPop">
+      <h5>Relatório mensal em PDF</h5>
+      <p>Uma página com os números do mês, comparação com o mês anterior e situação da escolinha. Respeita os filtros de função, PA e avaliador.</p>
+      <div class="row">
+        <select id="pdfMes"></select>
+        <button class="btn-upload" id="btnPdfGo">Baixar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" title="Testes agendados no recorte filtrado, incluindo quem faltou.">
+      <div class="lbl">Testes Aplicados</div><div class="val" id="k-total">0</div><div class="sub" id="k-total-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green)" title="Candidatos aprovados no resultado final.">
+      <div class="lbl">Aprovados</div><div class="val" id="k-aprov">0</div><div class="sub" id="k-aprov-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--navy)" title="Candidatos reprovados na prova teórica, no teste prático ou por documentação.">
+      <div class="lbl">Reprovados</div><div class="val" id="k-reprov">0</div><div class="sub" id="k-reprov-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--gold)" title="Reprovados classificados como aproveitáveis para o Projeto Escolinha.">
+      <div class="lbl">Aproveitáveis p/ Escolinha</div><div class="val" id="k-esc">0</div><div class="sub" id="k-esc-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green-dk)" title="Média das notas da prova teórica (0 a 10).">
+      <div class="lbl">Nota Média · Teórica</div><div class="val" id="k-nt">—</div><div class="sub" id="k-nt-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green-dk)" title="Média das notas do teste prático (0 a 10).">
+      <div class="lbl">Nota Média · Prática</div><div class="val" id="k-np">—</div><div class="sub" id="k-np-sub">—</div>
+    </div>
+  </div>
+
+  <div class="page-tabs-bar">
+    <button class="page-tab-btn active" data-page="page-geral">Visão Geral</button>
+    <button class="page-tab-btn" data-page="page-escolinha">Projeto Escolinha</button>
+    <button class="page-tab-btn" data-page="page-banco">Banco de Dados</button>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="side-title">FILTROS</div>
+      <div class="filter-block"><div class="filter-lbl">Mês</div><select class="filter-select" id="fMes"></select></div>
+      <div class="filter-block"><div class="filter-lbl">Função</div><select class="filter-select" id="fFunc"></select></div>
+      <div class="filter-block"><div class="filter-lbl">PA (Ponto de Apoio)</div><select class="filter-select" id="fPA"></select></div>
+      <div class="filter-block"><div class="filter-lbl">Avaliador</div><select class="filter-select" id="fAv"></select></div>
+      <div class="filter-block"><div class="filter-lbl">Resultado</div><select class="filter-select" id="fRes"></select></div>
+      <div class="filter-block"><div class="filter-lbl">Motivo da Reprovação</div><select class="filter-select" id="fMot"></select></div>
+      <div class="filter-block"><div class="filter-lbl">Classificação</div><select class="filter-select" id="fCls"></select></div>
+      <div class="clear-link" id="btnClearFilters">Limpar filtros</div>
+      <div class="period-box">
+        <div class="plbl">Período Analisado</div>
+        <div class="pval" id="periodo-analisado">—</div>
+      </div>
+    </div>
+
+    <div class="main-wrap">
+
+      <!-- ABA 1: VISÃO GERAL -->
+      <div class="page-content active" id="page-geral">
+        <div class="row3">
+          <div class="tile">
+            <h4>Testes por Mês
+              <span class="legend"><span><i style="background:var(--green)"></i>Aprovados</span><span><i style="background:var(--navy)"></i>Reprovados</span><span><i style="background:var(--lgray)"></i>Faltas</span></span>
+            </h4>
+            <div class="tile-body" id="c-meses"></div>
+          </div>
+          <div class="tile">
+            <h4>Resultado dos Testes</h4>
+            <div class="tile-body" id="c-donut-res"></div>
+          </div>
+          <div class="tile">
+            <h4>Principais Motivos de Reprovação</h4>
+            <div class="tile-body" id="c-motivos"></div>
+          </div>
+        </div>
+
+        <div class="row3e">
+          <div class="tile">
+            <h4>Onde o Candidato Reprova</h4>
+            <div class="tile-body" id="c-etapa"></div>
+          </div>
+          <div class="tile">
+            <h4>Taxa de Aprovação por PA</h4>
+            <div class="tile-body" id="c-pa"></div>
+          </div>
+          <div class="tile">
+            <h4>Taxa de Aprovação por Avaliador</h4>
+            <div class="tile-body" id="c-av"></div>
+          </div>
+        </div>
+
+        <div class="insights-band">
+          <div class="insights-head"><span>LEITURA<br>DO PERÍODO</span></div>
+          <div class="insights-list" id="insights-list"></div>
+        </div>
+      </div>
+
+      <!-- ABA 2: PROJETO ESCOLINHA -->
+      <div class="page-content" id="page-escolinha">
+        <div class="row3e">
+          <div class="tile">
+            <h4>Classificação dos Reprovados</h4>
+            <div class="tile-body" id="c-cls"></div>
+          </div>
+          <div class="tile">
+            <h4>Funil do Projeto Escolinha</h4>
+            <div class="tile-body" id="c-funil"></div>
+          </div>
+          <div class="tile">
+            <h4>O Que Treinar · Motivos dos Aproveitáveis</h4>
+            <div class="tile-body" id="c-treinar"></div>
+          </div>
+        </div>
+        <div class="tile">
+          <h4>Situação dos Candidatos na Escolinha</h4>
+          <div class="tile-body" id="c-sit"></div>
+        </div>
+      </div>
+
+      <!-- ABA 3: BANCO DE DADOS -->
+      <div class="page-content" id="page-banco">
+        <div class="toolbar">
+          <div class="search">
+            <input type="text" id="busca" placeholder="Pesquisar por nome, telefone, motivo, avaliador, observação..." autocomplete="off">
+            <button class="x" id="buscaX" title="Limpar pesquisa">×</button>
+          </div>
+          <div class="chips" id="chips"></div>
+          <div class="tb-count" id="tbCount"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-body scroll" id="tbl-banco"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>Consórcio LimpaGyn – Controle de Testes de Condução e Projeto Escolinha</footer>
+
+</div></div>
+
+<div id="report"></div>
+
+<script>
+function scaleStage(){
+  const stage=document.querySelector('.stage'), canvas=document.querySelector('.canvas');
+  canvas.style.transform=`scale(${stage.clientWidth/1600})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+
+/* ================= CONFIGURAÇÃO =================
+   Cole aqui o link CSV publicado da aba "TESTES DE CONDUÇÃO" no Google Sheets
+   (Arquivo > Compartilhar > Publicar na Web > aba > CSV). Enquanto estiver vazio,
+   o painel mostra dados de exemplo e aceita o botão "Carregar planilha". */
+const SHEET_CSV_URL = "";
+
+/* ================= UTILITÁRIOS ================= */
+const MES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const fmtInt = v => Number(v||0).toLocaleString('pt-BR');
+const fmt1 = v => (v==null || isNaN(v)) ? '—' : Number(v).toLocaleString('pt-BR',{minimumFractionDigits:1, maximumFractionDigits:1});
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+const esc = s => (s==null ? '' : String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => (s==null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const monthKey = d => `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+const monthShort = k => { const [y,m]=k.split('-'); return `${MES_ABBR[+m-1]}/${y.slice(2)}`; };
+const monthLong  = k => { const [y,m]=k.split('-'); return `${MES_FULL[+m-1]}/${y}`; };
+const prevMonth = k => { let [y,m]=k.split('-').map(Number); m--; if(!m){m=12;y--;} return `${y}-${String(m).padStart(2,'0')}`; };
+const fmtDate = d => d ? `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}` : '—';
+const cap = s => s ? (s.charAt(0)+s.slice(1).toLowerCase()).replace(/\b(cnh|ear|pa|dp)\b/gi, w=>w.toUpperCase()) : s;
+
+function parseNumberBR(v){
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return v;
+  let s=v.toString().trim().replace(/[^\d,.\-]/g,'');
+  if(s==='') return null;
+  const lc=s.lastIndexOf(','), ld=s.lastIndexOf('.');
+  if(lc>ld) s=s.replace(/\./g,'').replace(',','.'); else if(ld>lc) s=s.replace(/,/g,'');
+  const n=parseFloat(s); return isNaN(n) ? null : n;
+}
+function parseDateFlexible(v){
+  if(v==null || v==='') return null;
+  if(v instanceof Date) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
+  if(typeof v==='number') return new Date(Date.UTC(1899,11,30) + Math.round(v)*86400000);
+  const s=v.toString().trim();
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);   // planilha pt-BR: DD/MM/AAAA
+  if(m){ const y=+m[3]<100 ? 2000+ +m[3] : +m[3]; if(+m[1]>=1 && +m[1]<=31 && +m[2]>=1 && +m[2]<=12) return new Date(Date.UTC(y, +m[2]-1, +m[1])); }
+  if(/^\d{5}(\.\d+)?$/.test(s)) return parseDateFlexible(+s);
+  return null;
+}
+
+/* ================= REGRAS DE NEGÓCIO ================= */
+const CLS = {
+  APROV:{ nome:'Aproveitável – Escolinha', desc:'Tem base; o treinamento resolve', cor:'var(--green)', badge:'badge-green' },
+  RUIM: { nome:'Ruim – Reavaliar depois',  desc:'Muito a corrigir; fora da turma por ora', cor:'var(--gold)', badge:'badge-gold' },
+  MRUIM:{ nome:'Muito ruim – Não aproveitar', desc:'Sem condição, conduta ou documento', cor:'var(--red)', badge:'badge-red' },
+  NC:   { nome:'Não classificado', desc:'Classificação ainda não preenchida', cor:'var(--lgray)', badge:'badge-gray' }
+};
+const CLS_ORDER = ['APROV','RUIM','MRUIM','NC'];
+function classify(v){
+  const s=norm(v);
+  if(!s) return 'NC';
+  if(s.includes('MUITO') || s.includes('NAO APROVEIT') || s.includes('DESCART')) return 'MRUIM';
+  if(s.includes('RUIM') || s.includes('REAVALIA')) return 'RUIM';
+  if(s.includes('APROVEIT') || s.includes('ESCOLINHA') || s.includes('TREINAV')) return 'APROV';
+  return 'NC';
+}
+const RES = {
+  APROVADO:{ nome:'Aprovado', cor:'var(--green)' },
+  REP_TEO: { nome:'Reprovado na teórica', cor:'var(--navy)' },
+  REP_PRA: { nome:'Reprovado na prática', cor:'var(--gold)' },
+  REP_OUT: { nome:'Reprovado – documentação/outros', cor:'var(--gray)' },
+  FALTOU:  { nome:'Faltou ao teste', cor:'var(--lgray)' }
+};
+const RES_ORDER = ['APROVADO','REP_TEO','REP_PRA','REP_OUT','FALTOU'];
+const ESC = {
+  'AGUARDANDO TURMA':'badge-gold', 'EM TREINAMENTO':'badge-navy', 'APROVADO NO RETESTE':'badge-green',
+  'CONTRATADO':'badge-green', 'REPROVADO NO RETESTE':'badge-red', 'DESISTIU':'badge-red'
+};
+function normEscolinha(v){
+  const s=norm(v); if(!s) return null;
+  if(s.includes('CONTRAT')) return 'CONTRATADO';
+  if(s.includes('DESIST')) return 'DESISTIU';
+  if(s.includes('RETESTE') && s.includes('REPROV')) return 'REPROVADO NO RETESTE';
+  if(s.includes('RETESTE') || s.includes('APROV')) return 'APROVADO NO RETESTE';
+  if(s.includes('TREINA')) return 'EM TREINAMENTO';
+  if(s.includes('AGUARD') || s.includes('FILA') || s.includes('TURMA')) return 'AGUARDANDO TURMA';
+  return s;
+}
+const isRep = r => r.res.startsWith('REP');
+
+function enrich(raw){
+  const data = parseDateFlexible(raw.d);
+  if(!data) return null;
+  const cand = (raw.c||'').toString().trim().toUpperCase();
+  if(!cand) return null;
+  const rt=norm(raw.rt), rp=norm(raw.rp);
+  let rf=norm(raw.rf);
+  if(!rf){
+    if(rt.startsWith('REPROV') || rp.startsWith('REPROV')) rf='REPROVADO';
+    else if(rp.startsWith('APROV')) rf='APROVADO';
+  }
+  let res=null;
+  if(rf.startsWith('FALT') || rf.includes('NAO COMPARE')) res='FALTOU';
+  else if(rf.startsWith('APROV')) res='APROVADO';
+  else if(rf.startsWith('REPROV')) res = rt.startsWith('REPROV') ? 'REP_TEO' : (rp.startsWith('REPROV') ? 'REP_PRA' : 'REP_OUT');
+  if(!res) return null;
+  let pa=(raw.pa||'').toString().trim().toUpperCase().replace(/\s+/g,' ');
+  const mpa=pa.match(/^(?:PA)?\s*0?(\d)$/); if(mpa) pa='PA 0'+mpa[1];
+  const rep = res.startsWith('REP');
+  const cls = rep ? classify(raw.cl) : null;
+  const r = {
+    data, mes:monthKey(data), cand,
+    tel:(raw.t||'').toString().trim(),
+    func:(raw.f||'').toString().trim().toUpperCase() || 'NÃO INFORMADA',
+    pa: pa || '—',
+    av:(raw.av||'').toString().trim().toUpperCase() || 'NÃO INFORMADO',
+    nt:parseNumberBR(raw.nt), np:parseNumberBR(raw.np),
+    res,
+    motivo: rep ? ((raw.mo||'').toString().trim().toUpperCase() || 'MOTIVO NÃO INFORMADO') : null,
+    cls,
+    esc: cls==='APROV' ? (normEscolinha(raw.es) || 'AGUARDANDO TURMA') : null,
+    obs:(raw.ob||'').toString().trim()
+  };
+  r.busca = norm([fmtDate(r.data), r.cand, r.tel, r.tel.replace(/\D/g,''), r.func, r.pa, r.av, RES[r.res].nome, r.motivo, r.cls?CLS[r.cls].nome:'', r.esc, r.obs].join(' | '));
+  return r;
+}
+
+/* ================= DADOS DE EXEMPLO ================= */
+const DEMO_RECORDS = [{"d":"2026-05-02","c":"JOSÉ TEIXEIRA FERREIRA","t":"(62) 99291-2013","f":"OPERADOR DE VARREDEIRA","pa":"PA 01","av":"PRISCILA","nt":7.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"BALIZA / MANOBRA EM ESPAÇO REDUZIDO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-05-02","c":"EDSON NUNES OLIVEIRA","t":"(62) 99183-8301","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":7.0,"rt":"APROVADO","np":4.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"NERVOSISMO / INSEGURANÇA","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-05-04","c":"THIAGO COSTA PINTO","t":"(62) 98264-5056","f":"MOTORISTA","pa":"PA 02","av":"CLAUDIO","nt":9.5,"rt":"APROVADO","np":5.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"VELOCIDADE / DIREÇÃO DEFENSIVA","cl":"APROVEITÁVEL - ESCOLINHA","es":"CONTRATADO"},{"d":"2026-05-07","c":"CLEBER SOUZA PINTO","t":"(62) 98953-8424","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"EM TREINAMENTO"},{"d":"2026-05-11","c":"FÁBIO MOREIRA NUNES","t":"(62) 98149-2934","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"APROVADO NO RETESTE"},{"d":"2026-05-18","c":"FÁBIO FERREIRA LIMA","t":"(62) 99671-3961","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":8.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"BALIZA / MANOBRA EM ESPAÇO REDUZIDO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-05-19","c":"MÁRCIO OLIVEIRA TEIXEIRA","t":"(62) 99423-6737","f":"OPERADOR DE VARREDEIRA","pa":"PA 03","av":"CLAUDIO","nt":8.0,"rt":"APROVADO","np":9.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-05-21","c":"RODRIGO LIMA BARBOSA","t":"(62) 99193-1950","f":"MOTORISTA","pa":"PA 01","av":"CLAUDIO","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"EM TREINAMENTO"},{"d":"2026-05-28","c":"IVAN LIMA FERREIRA","t":"(62) 99398-7233","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"CONTRATADO"},{"d":"2026-06-04","c":"THIAGO OLIVEIRA ALVES","t":"(62) 98418-8907","f":"MOTORISTA","pa":"PA 02","av":"CLAUDIO","nt":9.5,"rt":"APROVADO","np":7.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-06-05","c":"RENATO GOMES OLIVEIRA","t":"(62) 98542-8841","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"CNH IRREGULAR (CATEGORIA, PONTOS, EAR)","cl":"MUITO RUIM - NÃO APROVEITAR","es":null},{"d":"2026-06-06","c":"CARLOS NUNES CARDOSO","t":"(62) 98858-9758","f":"MOTORISTA","pa":"PA 01","av":"PRISCILA","nt":8.0,"rt":"APROVADO","np":8.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-06-11","c":"GILMAR COSTA PEREIRA","t":"(62) 99160-3478","f":"MOTORISTA","pa":"PA 01","av":"PRISCILA","nt":10.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"CONTROLE DO VEÍCULO (EMBREAGEM, MARCHA, FREIO)","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-06-13","c":"RONALDO BARBOSA MENDES","t":"(62) 98325-3785","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-06-15","c":"VAGNER PINTO SOUZA","t":"(62) 98817-7457","f":"OPERADOR DE VARREDEIRA","pa":"PA 04","av":"CLAUDIO","nt":8.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"CONTROLE DO VEÍCULO (EMBREAGEM, MARCHA, FREIO)","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-06-21","c":"SANDRO BARBOSA LIMA","t":"(62) 98745-8768","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":9.5,"rt":"APROVADO","np":7.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-06-23","c":"VAGNER ROCHA LIMA","t":"(62) 98610-2491","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"APROVADO NO RETESTE"},{"d":"2026-06-25","c":"LUCAS TEIXEIRA TEIXEIRA","t":"(62) 99661-4197","f":"MOTORISTA","pa":"PA 02","av":"JEAN","nt":9.0,"rt":"APROVADO","np":6.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"NERVOSISMO / INSEGURANÇA","cl":"APROVEITÁVEL - ESCOLINHA","es":"CONTRATADO"},{"d":"2026-06-26","c":"RONALDO SILVA SILVA","t":"(62) 99418-6640","f":"MOTORISTA","pa":"PA 03","av":"PRISCILA","nt":9.5,"rt":"APROVADO","np":10.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-06-27","c":"ÉDER ROCHA OLIVEIRA","t":"(62) 99536-4265","f":"MOTORISTA","pa":"PA 04","av":"JEAN","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"EM TREINAMENTO"},{"d":"2026-06-27","c":"GEOVANI LIMA PINTO","t":"(62) 99919-6741","f":"MOTORISTA","pa":"PA 04","av":"JEAN","nt":8.0,"rt":"APROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"CNH IRREGULAR (CATEGORIA, PONTOS, EAR)","cl":"MUITO RUIM - NÃO APROVEITAR","es":null},{"d":"2026-07-02","c":"EDSON PINTO LIMA","t":"(62) 99984-3645","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"CONTRATADO"},{"d":"2026-07-03","c":"ÉDER OLIVEIRA CARVALHO","t":"(62) 98541-2993","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":7.0,"rt":"APROVADO","np":9.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-05","c":"WESLEY LIMA COSTA","t":"(62) 98126-6340","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":7.5,"rt":"APROVADO","np":9.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-07","c":"IVAN CARVALHO TEIXEIRA","t":"(62) 98249-7428","f":"OPERADOR DE VARREDEIRA","pa":"PA 02","av":"CLAUDIO","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-07-08","c":"WELLINGTON GOMES MOREIRA","t":"(62) 99114-7865","f":"MOTORISTA","pa":"PA 03","av":"CLAUDIO","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-07-08","c":"IVAN TEIXEIRA SOUZA","t":"(62) 99039-8408","f":"MOTORISTA","pa":"PA 01","av":"PRISCILA","nt":9.0,"rt":"APROVADO","np":7.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-09","c":"IVAN PEREIRA OLIVEIRA","t":"(62) 99547-3122","f":"MOTORISTA","pa":"PA 02","av":"CLAUDIO","nt":9.5,"rt":"APROVADO","np":9.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-14","c":"MÁRCIO CARDOSO MOREIRA","t":"(62) 98310-9577","f":"OPERADOR DE VARREDEIRA","pa":"PA 02","av":"JEAN","nt":9.5,"rt":"APROVADO","np":8.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-17","c":"SANDRO MOREIRA PINTO","t":"(62) 99040-9737","f":"MOTORISTA","pa":"PA 03","av":"CLAUDIO","nt":7.5,"rt":"APROVADO","np":7.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-07-17","c":"PAULO LIMA TEIXEIRA","t":"(62) 98571-1942","f":"MOTORISTA","pa":"PA 03","av":"PRISCILA","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-07-23","c":"DIEGO ALVES COSTA","t":"(62) 98862-4207","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-07-23","c":"ADRIANO MENDES MENDES","t":"(62) 99277-5840","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-07-24","c":"GEOVANI PEREIRA MOREIRA","t":"(62) 99691-4457","f":"OPERADOR DE PESADAS","pa":"PA 04","av":"PRISCILA","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-07-25","c":"WELLINGTON GOMES PEREIRA","t":"(62) 98518-3248","f":"MOTORISTA","pa":"PA 03","av":"PRISCILA","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"DESISTIU"},{"d":"2026-08-03","c":"JEFERSON COSTA SOUZA","t":"(62) 99373-5619","f":"MOTORISTA","pa":"PA 04","av":"JEAN","nt":8.5,"rt":"APROVADO","np":5.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"CONTROLE DO VEÍCULO (EMBREAGEM, MARCHA, FREIO)","cl":"APROVEITÁVEL - ESCOLINHA","es":"APROVADO NO RETESTE"},{"d":"2026-08-03","c":"MÁRCIO CARDOSO ALVES","t":"(62) 98738-2718","f":"MOTORISTA","pa":"PA 02","av":"JEAN","nt":7.5,"rt":"APROVADO","np":4.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"COMPORTAMENTO / POSTURA","cl":"MUITO RUIM - NÃO APROVEITAR","es":null},{"d":"2026-08-08","c":"EDSON OLIVEIRA CARVALHO","t":"(62) 99515-8542","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":7.0,"rt":"APROVADO","np":8.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-08-09","c":"WESLEY SILVA OLIVEIRA","t":"(62) 99201-1682","f":"OPERADOR DE VARREDEIRA","pa":"PA 02","av":"CLAUDIO","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"CONTRATADO"},{"d":"2026-08-09","c":"MÁRCIO ALVES NUNES","t":"(62) 99909-9240","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-08-11","c":"FÁBIO RIBEIRO ALVES","t":"(62) 98711-1891","f":"MOTORISTA","pa":"PA 02","av":"CLAUDIO","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-08-13","c":"VAGNER LIMA PINTO","t":"(62) 98581-3371","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-08-16","c":"CARLOS NUNES SOUZA","t":"(62) 98445-9021","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":7.5,"rt":"APROVADO","np":7.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-08-17","c":"WELLINGTON GOMES MENDES","t":"(62) 99645-1297","f":"MOTORISTA","pa":"PA 03","av":"CLAUDIO","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"CNH IRREGULAR (CATEGORIA, PONTOS, EAR)","cl":"MUITO RUIM - NÃO APROVEITAR","es":null},{"d":"2026-08-17","c":"VAGNER TEIXEIRA RIBEIRO","t":"(62) 99348-8080","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":8.0,"rt":"APROVADO","np":10.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-08-18","c":"EDSON ROCHA MARTINS","t":"(62) 98446-6842","f":"MOTORISTA","pa":"PA 01","av":"CLAUDIO","nt":7.0,"rt":"APROVADO","np":6.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"CONTROLE DO VEÍCULO (EMBREAGEM, MARCHA, FREIO)","cl":"APROVEITÁVEL - ESCOLINHA","es":"EM TREINAMENTO"},{"d":"2026-08-21","c":"WESLEY SOUZA PINTO","t":"(62) 98301-6435","f":"MOTORISTA","pa":"PA 01","av":"JEAN","nt":9.0,"rt":"APROVADO","np":7.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-08-24","c":"ALEX MOREIRA FERREIRA","t":"(62) 99541-9263","f":"MOTORISTA","pa":"PA 02","av":"JEAN","nt":9.0,"rt":"APROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"CNH IRREGULAR (CATEGORIA, PONTOS, EAR)","cl":"MUITO RUIM - NÃO APROVEITAR","es":null},{"d":"2026-09-01","c":"GEOVANI CARDOSO RIBEIRO","t":"(62) 98847-9587","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-02","c":"RAFAEL ALVES CARDOSO","t":"(62) 99283-5125","f":"MOTORISTA","pa":"PA 03","av":"PRISCILA","nt":7.5,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"RETROVISORES E ATENÇÃO NO TRÂNSITO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-09-03","c":"PAULO RIBEIRO RIBEIRO","t":"(62) 99073-5289","f":"MOTORISTA","pa":"PA 02","av":"JEAN","nt":6.0,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-04","c":"EDSON SOUZA CARVALHO","t":"(62) 99916-3439","f":"MOTORISTA","pa":"PA 03","av":"JEAN","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-08","c":"VAGNER ALVES TEIXEIRA","t":"(62) 99330-6036","f":"MOTORISTA","pa":"PA 04","av":"JEAN","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-09-10","c":"ANDERSON TEIXEIRA RIBEIRO","t":"(62) 98593-8519","f":"OPERADOR DE PESADAS","pa":"PA 04","av":"PRISCILA","nt":7.5,"rt":"APROVADO","np":10.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-09-10","c":"RENATO MENDES BARBOSA","t":"(62) 98770-6178","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":7.0,"rt":"APROVADO","np":6.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"VELOCIDADE / DIREÇÃO DEFENSIVA","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-13","c":"VAGNER CARDOSO RIBEIRO","t":"(62) 99100-5940","f":"MOTORISTA","pa":"PA 01","av":"PRISCILA","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"PROVA TEÓRICA ABAIXO DA MÉDIA","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-14","c":"GILMAR MARTINS MENDES","t":"(62) 98185-3862","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-09-16","c":"LEANDRO ROCHA ALVES","t":"(62) 98050-3606","f":"OPERADOR DE VARREDEIRA","pa":"PA 04","av":"CLAUDIO","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-09-16","c":"SANDRO LIMA GOMES","t":"(62) 98967-7797","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-16","c":"ÉDER ALVES GOMES","t":"(62) 98342-3648","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":7.5,"rt":"APROVADO","np":7.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-09-19","c":"MARCOS FERREIRA NUNES","t":"(62) 99905-9648","f":"MOTORISTA","pa":"PA 01","av":"CLAUDIO","nt":10.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"BALIZA / MANOBRA EM ESPAÇO REDUZIDO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-09-22","c":"CLEBER ROCHA LIMA","t":"(62) 98555-5070","f":"MOTORISTA","pa":"PA 02","av":"PRISCILA","nt":8.5,"rt":"APROVADO","np":6.5,"rp":"REPROVADO","rf":"REPROVADO","mo":"BALIZA / MANOBRA EM ESPAÇO REDUZIDO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-09-24","c":"NILTON RIBEIRO SILVA","t":"(62) 98804-7392","f":"MOTORISTA","pa":"PA 03","av":"PRISCILA","nt":8.0,"rt":"APROVADO","np":7.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-09-26","c":"GEOVANI FERREIRA SILVA","t":"(62) 99124-4333","f":"MOTORISTA","pa":"PA 04","av":"JEAN","nt":5.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-09-27","c":"RAFAEL MOREIRA PEREIRA","t":"(62) 99129-1647","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-10-02","c":"WELLINGTON NUNES FERREIRA","t":"(62) 98464-9076","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-10-02","c":"PAULO SOUZA MENDES","t":"(62) 98399-2029","f":"OPERADOR DE VARREDEIRA","pa":"PA 01","av":"CLAUDIO","nt":7.0,"rt":"APROVADO","np":10.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-10-02","c":"JOSÉ SILVA ALVES","t":"(62) 99617-5113","f":"MOTORISTA","pa":"PA 04","av":"CLAUDIO","nt":9.0,"rt":"APROVADO","np":7.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-10-04","c":"NILTON COSTA MARTINS","t":"(62) 98638-7203","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":10.0,"rt":"APROVADO","np":5.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"BALIZA / MANOBRA EM ESPAÇO REDUZIDO","cl":"RUIM - REAVALIAR FUTURAMENTE","es":null},{"d":"2026-10-04","c":"JOSÉ SOUZA NUNES","t":"(62) 98662-6967","f":"MOTORISTA","pa":"PA 04","av":"PRISCILA","nt":7.5,"rt":"APROVADO","np":6.0,"rp":"REPROVADO","rf":"REPROVADO","mo":"VELOCIDADE / DIREÇÃO DEFENSIVA","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"},{"d":"2026-10-07","c":"IVAN ALVES NUNES","t":"(62) 98299-7446","f":"OPERADOR DE PESADAS","pa":"PA 01","av":"JEAN","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-10-07","c":"CARLOS PINTO LIMA","t":"(62) 98805-8366","f":"MOTORISTA","pa":"PA 01","av":"PRISCILA","nt":9.5,"rt":"APROVADO","np":10.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-10-07","c":"EDSON OLIVEIRA ROCHA","t":"(62) 99974-4398","f":"OPERADOR DE PESADAS","pa":"PA 01","av":"JEAN","nt":9.0,"rt":"APROVADO","np":9.0,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-10-11","c":"RODRIGO FERREIRA ROCHA","t":"(62) 99513-9271","f":"MOTORISTA","pa":"PA 01","av":"CLAUDIO","nt":null,"rt":"NÃO REALIZOU","np":null,"rp":"NÃO REALIZOU","rf":"FALTOU","mo":null,"cl":null,"es":null},{"d":"2026-10-12","c":"SANDRO SOUZA CARVALHO","t":"(62) 98609-1061","f":"MOTORISTA","pa":"PA 03","av":"CLAUDIO","nt":8.0,"rt":"APROVADO","np":9.5,"rp":"APROVADO","rf":"APROVADO","mo":null,"cl":null,"es":null},{"d":"2026-10-13","c":"RENATO RIBEIRO GOMES","t":"(62) 98453-5342","f":"OPERADOR DE VARREDEIRA","pa":"PA 02","av":"CLAUDIO","nt":6.5,"rt":"REPROVADO","np":null,"rp":"NÃO REALIZOU","rf":"REPROVADO","mo":"LEGISLAÇÃO E SINALIZAÇÃO","cl":"APROVEITÁVEL - ESCOLINHA","es":"AGUARDANDO TURMA"}];
+
+/* ================= LEITURA DA PLANILHA ================= */
+const COLS = [
+  ['nt', h=>h.includes('NOTA') && h.includes('TEOR')],
+  ['np', h=>h.includes('NOTA') && h.includes('PRAT')],
+  ['rt', h=>h.includes('RESULT') && h.includes('TEOR')],
+  ['rp', h=>h.includes('RESULT') && h.includes('PRAT')],
+  ['rf', h=>h.includes('RESULT') && h.includes('FINAL')],
+  ['cl', h=>h.includes('CLASSIFIC') || h.includes('NIVEL')],
+  ['es', h=>h.includes('ESCOLINHA')],
+  ['mo', h=>h.includes('MOTIVO')],
+  ['ob', h=>h.startsWith('OBS')],
+  ['d',  h=>h.startsWith('DATA')],
+  ['c',  h=>h.includes('CANDIDATO') || h==='NOME'],
+  ['t',  h=>h.includes('TELEFONE') || h.includes('NUMERO') || h.includes('CONTATO')],
+  ['f',  h=>h.includes('FUNCAO') || h.includes('VAGA') || h.includes('CARGO')],
+  ['pa', h=>h==='PA' || h.startsWith('PA ') || h.includes('PONTO DE APOIO')],
+  ['av', h=>h.includes('AVALIADOR') || h.includes('ENTREVISTADOR') || h.includes('INSTRUTOR')]
+];
+function parseWorkbook(wb){
+  const name = wb.SheetNames.find(n=>norm(n).includes('TESTE')) || wb.SheetNames[0];
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, defval:null, raw:true});
+  const hIdx = aoa.slice(0,8).findIndex(r=>r && r.some(c=>norm(c).includes('CANDIDATO')));
+  if(hIdx<0) throw new Error('não encontrei a coluna CANDIDATO');
+  const header = aoa[hIdx].map(norm);
+  const map = {};
+  header.forEach((h,i)=>{ if(!h) return; const hit=COLS.find(([k,fn])=>!(k in map) && fn(h)); if(hit) map[hit[0]]=i; });
+  const rows=[]; let ignoradas=0;
+  aoa.slice(hIdx+1).forEach(r=>{
+    if(!r || r.every(c=>c==null || c==='')) return;
+    const raw={}; for(const k in map) raw[k]=r[map[k]];
+    const e=enrich(raw);
+    if(e) rows.push(e); else ignoradas++;
+  });
+  return { rows, ignoradas, aba:name };
+}
+function loadFromSheet(){
+  if(!SHEET_CSV_URL){
+    showStatus('Link do Google Sheets ainda não configurado. Use "Carregar planilha" para abrir o arquivo.', 'err');
+    return;
+  }
+  showStatus('Sincronizando com Google Sheets...', 'ok');
+  const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  fetch(url, {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('acesso à planilha recusado'); return r.text(); })
+    .then(txt=>{ const res=parseWorkbook(XLSX.read(txt,{type:'string', raw:true})); applyData(res.rows,'Google Sheets',res.ignoradas); })
+    .catch(err=>showStatus('Planilha não acessada ('+err.message+'). Mantendo os dados atuais.', 'err'));
+}
+function loadFromFile(file){
+  const rd=new FileReader();
+  rd.onload = e=>{
+    try{
+      const isCsv=/\.csv$/i.test(file.name);
+      const wb = isCsv ? XLSX.read(e.target.result,{type:'string', raw:true}) : XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const res=parseWorkbook(wb);
+      if(!res.rows.length) throw new Error('nenhum teste válido na aba '+res.aba);
+      applyData(res.rows, 'arquivo '+file.name, res.ignoradas);
+    }catch(err){ showStatus('Não consegui ler a planilha: '+err.message, 'err'); }
+  };
+  /\.csv$/i.test(file.name) ? rd.readAsText(file,'UTF-8') : rd.readAsArrayBuffer(file);
+}
+
+/* ================= ESTADO & FILTROS ================= */
+let RAW = [];
+const F_DEF = { mes:'Todos', func:'Todos', pa:'Todos', av:'Todos', res:'Todos', mot:'Todos', cls:'Todos' };
+let FILTERS = {...F_DEF};
+const SEL = { mes:'fMes', func:'fFunc', pa:'fPA', av:'fAv', res:'fRes', mot:'fMot', cls:'fCls' };
+let BUSCA = '', CHIP = 'TODOS';
+
+function matches(r, skip){
+  const f=FILTERS, sk = Array.isArray(skip) ? skip : [skip];
+  if(!sk.includes('mes')  && f.mes!=='Todos'  && r.mes!==f.mes) return false;
+  if(!sk.includes('func') && f.func!=='Todos' && r.func!==f.func) return false;
+  if(!sk.includes('pa')   && f.pa!=='Todos'   && r.pa!==f.pa) return false;
+  if(!sk.includes('av')   && f.av!=='Todos'   && r.av!==f.av) return false;
+  if(!sk.includes('res')  && f.res!=='Todos'){
+    if(f.res==='REPROVADOS'){ if(!isRep(r)) return false; }
+    else if(r.res!==f.res) return false;
+  }
+  if(!sk.includes('mot')  && f.mot!=='Todos'  && r.motivo!==f.mot) return false;
+  if(!sk.includes('cls')  && f.cls!=='Todos'  && r.cls!==f.cls) return false;
+  return true;
+}
+const filtered = skip => RAW.filter(r=>matches(r,skip));
+
+function setFilter(dim, val){ FILTERS[dim] = (FILTERS[dim]===val ? 'Todos' : val); renderAll(); }
+function clearFilters(){ FILTERS={...F_DEF}; renderAll(); }
+
+function fillSelect(id, opts, cur){
+  const el=document.getElementById(id);
+  el.innerHTML = '<option value="Todos">Todos</option>' + opts.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('');
+  el.value=cur; el.classList.toggle('on', cur!=='Todos');
+}
+function uniq(arr){ return [...new Set(arr)].filter(v=>v!=null && v!=='').sort((a,b)=>a.localeCompare(b,'pt-BR')); }
+function updateFilterOptions(){
+  const meses=uniq(RAW.map(r=>r.mes)).sort();
+  fillSelect('fMes', meses.slice().reverse().map(m=>[m, monthLong(m)]), FILTERS.mes);
+  fillSelect('fFunc', uniq(RAW.map(r=>r.func)).map(v=>[v,v]), FILTERS.func);
+  fillSelect('fPA', uniq(RAW.map(r=>r.pa)).filter(v=>v!=='—').map(v=>[v,v]), FILTERS.pa);
+  fillSelect('fAv', uniq(RAW.map(r=>r.av)).map(v=>[v,v]), FILTERS.av);
+  fillSelect('fRes', [['APROVADO','Aprovados'],['REPROVADOS','Reprovados (todos)'],['REP_TEO','Reprovados na teórica'],['REP_PRA','Reprovados na prática'],['REP_OUT','Reprovados – documentação/outros'],['FALTOU','Faltaram']].filter(([k])=>k==='REPROVADOS' || RAW.some(r=>r.res===k)), FILTERS.res);
+  fillSelect('fMot', uniq(RAW.map(r=>r.motivo)).map(v=>[v,v]), FILTERS.mot);
+  fillSelect('fCls', CLS_ORDER.filter(k=>RAW.some(r=>r.cls===k)).map(k=>[k, CLS[k].nome]), FILTERS.cls);
+  document.getElementById('btnClearFilters').style.display = Object.keys(F_DEF).some(k=>FILTERS[k]!=='Todos') ? 'block' : 'none';
+  const pm=document.getElementById('pdfMes'), keep=pm.value;
+  pm.innerHTML = meses.slice().reverse().map(m=>`<option value="${m}">${monthLong(m)}</option>`).join('');
+  pm.value = FILTERS.mes!=='Todos' ? FILTERS.mes : (meses.includes(keep) ? keep : meses[meses.length-1]||'');
+}
+
+function applyData(rows, fonte, ignoradas){
+  RAW = rows.slice().sort((a,b)=>a.data-b.data);
+  FILTERS = {...F_DEF};
+  document.getElementById('fonteLbl').textContent = 'Fonte: ' + fonte;
+  renderAll();
+  if(fonte!=='dados de exemplo') showStatus(`Base atualizada: ${rows.length} testes carregados` + (ignoradas ? ` (${ignoradas} linhas sem data, nome ou resultado foram ignoradas)` : '') + '.', 'ok');
+}
+function showStatus(msg, kind){
+  const el=document.getElementById('statusMsg');
+  el.textContent=msg; el.className='status-msg show '+kind;
+  clearTimeout(window._st); window._st=setTimeout(()=>el.classList.remove('show'), 7000);
+}
+
+/* ================= AGREGAÇÕES ================= */
+function stats(rows){
+  const s={ total:rows.length, aprov:0, rep:0, falt:0, teo:0, pra:0, out:0, aproveit:0, nc:0 };
+  rows.forEach(r=>{
+    if(r.res==='APROVADO') s.aprov++;
+    else if(r.res==='FALTOU') s.falt++;
+    else { s.rep++; if(r.res==='REP_TEO') s.teo++; else if(r.res==='REP_PRA') s.pra++; else s.out++;
+      if(r.cls==='APROV') s.aproveit++; if(r.cls==='NC') s.nc++; }
+  });
+  s.real = s.aprov + s.rep;
+  s.taxa = pct(s.aprov, s.real);
+  const nts=rows.map(r=>r.nt).filter(v=>v!=null), nps=rows.map(r=>r.np).filter(v=>v!=null);
+  s.nt = nts.length ? nts.reduce((a,b)=>a+b,0)/nts.length : null; s.ntN=nts.length;
+  s.np = nps.length ? nps.reduce((a,b)=>a+b,0)/nps.length : null; s.npN=nps.length;
+  return s;
+}
+function groupBy(rows, key){ const m={}; rows.forEach(r=>{ const k=r[key]; (m[k]=m[k]||[]).push(r); }); return m; }
+function topMotivos(reps, n){
+  const g=groupBy(reps,'motivo');
+  return Object.keys(g).map(k=>({k, n:g[k].length})).sort((a,b)=>(a.k==='MOTIVO NÃO INFORMADO')-(b.k==='MOTIVO NÃO INFORMADO') || b.n-a.n).slice(0,n);
+}
+
+/* ================= RENDER ================= */
+function renderAll(){
+  updateFilterOptions();
+  const rows = filtered();
+  const s = stats(rows);
+  const mesesAll = uniq(RAW.map(r=>r.mes)).sort();
+
+  document.getElementById('k-total').textContent = fmtInt(s.total);
+  document.getElementById('k-total-sub').innerHTML = `<b>${fmtInt(s.real)}</b> realizados · <b>${fmtInt(s.falt)}</b> faltas`;
+  document.getElementById('k-aprov').innerHTML = `${fmtInt(s.aprov)}<small>${s.taxa}%</small>`;
+  document.getElementById('k-aprov-sub').innerHTML = `dos testes realizados`;
+  document.getElementById('k-reprov').innerHTML = `${fmtInt(s.rep)}<small>${pct(s.rep,s.real)}%</small>`;
+  document.getElementById('k-reprov-sub').innerHTML = `<b>${fmtInt(s.teo)}</b> na teórica · <b>${fmtInt(s.pra)}</b> na prática`;
+  document.getElementById('k-esc').innerHTML = `${fmtInt(s.aproveit)}<small>${pct(s.aproveit,s.rep)}%</small>`;
+  document.getElementById('k-esc-sub').innerHTML = s.nc ? `dos reprovados · <b>${s.nc}</b> sem classificação` : 'dos reprovados';
+  document.getElementById('k-nt').textContent = fmt1(s.nt);
+  document.getElementById('k-nt-sub').innerHTML = s.ntN ? `de 0 a 10 · <b>${s.ntN}</b> provas` : 'notas não lançadas';
+  document.getElementById('k-np').textContent = fmt1(s.np);
+  document.getElementById('k-np-sub').innerHTML = s.npN ? `de 0 a 10 · <b>${s.npN}</b> testes` : 'notas não lançadas';
+
+  const ultimo = mesesAll[mesesAll.length-1];
+  document.getElementById('hdr-mes').textContent = FILTERS.mes!=='Todos' ? monthLong(FILTERS.mes) : (ultimo ? monthLong(ultimo) : '—');
+  const range = mesesAll.length ? (mesesAll.length>1 ? `${monthLong(mesesAll[0])} a ${monthLong(ultimo)}` : monthLong(ultimo)) : 'sem dados';
+  document.getElementById('hdr-sub-period').textContent = range;
+  document.getElementById('periodo-analisado').innerHTML = FILTERS.mes!=='Todos' ? monthLong(FILTERS.mes)
+    : (mesesAll.length>1 ? `${monthLong(mesesAll[0])} a<br>${monthLong(ultimo)}` : range);
+
+  renderMeses(mesesAll);
+  renderDonutRes();
+  renderMotivos();
+  renderEtapa(s);
+  renderTaxaPor('c-pa', 'pa');
+  renderTaxaPor('c-av', 'av');
+  renderInsights(rows, s, mesesAll);
+  renderCls();
+  renderFunil(rows, s);
+  renderTreinar(rows);
+  renderSituacao(rows);
+  renderBanco();
+}
+const emptyBox = msg => `<div class="empty">${msg}</div>`;
+
+function renderMeses(mesesAll){
+  const g = groupBy(filtered('mes'),'mes');
+  const meses = mesesAll.slice(-12);
+  if(!meses.length){ document.getElementById('c-meses').innerHTML = emptyBox('Sem testes no recorte.'); return; }
+  const max = Math.max(1, ...meses.map(m=>(g[m]||[]).length));
+  document.getElementById('c-meses').innerHTML = `<div class="mcols">` + meses.map(m=>{
+    const st = stats(g[m]||[]); const h = v => (v/max*100).toFixed(2)+'%';
+    return `<div class="mcol${FILTERS.mes===m?' sel':''}" data-mes="${m}" title="${monthLong(m)}: ${st.total} testes · ${st.aprov} aprovados · ${st.rep} reprovados · ${st.falt} faltas">
+      <div class="tot">${st.total}</div>
+      <div class="stack"><div style="height:${h(st.falt)};background:var(--lgray)"></div><div style="height:${h(st.rep)};background:var(--navy)"></div><div style="height:${h(st.aprov)};background:var(--green)"></div></div>
+      <div class="mlbl">${monthShort(m)}</div><div class="rate">${st.real ? st.taxa+'%' : '—'}</div></div>`;
+  }).join('') + `</div>`;
+  document.querySelectorAll('#c-meses .mcol').forEach(el=>el.addEventListener('click',()=>setFilter('mes', el.dataset.mes)));
+}
+
+function renderDonutRes(){
+  const el=document.getElementById('c-donut-res');
+  const all = filtered('res');
+  const cnt = {}; RES_ORDER.forEach(k=>cnt[k]=all.filter(r=>r.res===k).length);
+  const keys = RES_ORDER.filter(k=>cnt[k]>0);
+  const total = keys.reduce((a,k)=>a+cnt[k],0);
+  if(!total){ el.innerHTML=emptyBox('Sem testes no recorte.'); return; }
+  let acc=0; const stops=keys.map(k=>{ const a=acc/total*360; acc+=cnt[k]; return `${RES[k].cor} ${a.toFixed(2)}deg ${(acc/total*360).toFixed(2)}deg`; });
+  const taxa = pct(cnt.APROVADO, total - cnt.FALTOU);
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:14px;height:100%;">
+    <div style="width:122px;height:122px;border-radius:50%;flex-shrink:0;position:relative;background:conic-gradient(${stops.join(',')});">
+      <div style="position:absolute;inset:20px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+        <div style="font-size:23px;font-weight:800;color:var(--green-dk);line-height:1;">${taxa}%</div>
+        <div style="font-size:8px;color:#9AA2AC;text-transform:uppercase;margin-top:3px;letter-spacing:.04em;">aprovação</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">` + keys.map(k=>`
+      <div class="dl-row${FILTERS.res===k?' sel':''}" data-res="${k}">
+        <span style="display:flex;align-items:center;gap:6px;color:#5B6472;min-width:0;"><span style="width:8px;height:8px;border-radius:2px;background:${RES[k].cor};flex-shrink:0;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${RES[k].nome}</span></span>
+        <span style="color:#1F2937;font-weight:800;white-space:nowrap;font-size:12.5px;">${cnt[k]} <span class="muted" style="font-weight:700;font-size:10.5px">${pct(cnt[k],total)}%</span></span>
+      </div>`).join('') + `</div></div>`;
+  el.querySelectorAll('.dl-row').forEach(d=>d.addEventListener('click',()=>setFilter('res', d.dataset.res)));
+}
+
+function hbars(el, items, color, dim){
+  if(!items.length){ el.innerHTML=emptyBox('Sem dados no recorte.'); return; }
+  const max=Math.max(1,...items.map(o=>o.w));
+  el.innerHTML = `<div class="hb-list">` + items.map(o=>`
+    <div class="hb-row${dim?' click':''}${dim && FILTERS[dim]===o.k?' sel':''}" ${dim?`data-k="${esc(o.k)}"`:''} title="${esc(o.label)}">
+      <div><div class="hb-lbl">${esc(o.label)}${o.note?` <span>${o.note}</span>`:''}</div><div class="hb-track"><div class="hb-fill" style="width:${(o.w/max*100).toFixed(1)}%;background:${o.color||color}"></div></div></div>
+      <div class="hb-val">${o.big}<small>${o.small||''}</small></div>
+    </div>`).join('') + `</div>`;
+  if(dim) el.querySelectorAll('.hb-row').forEach(d=>d.addEventListener('click',()=>setFilter(dim, d.dataset.k)));
+}
+
+function renderMotivos(){
+  const reps=filtered('mot').filter(isRep);
+  const list=topMotivos(reps, 6);
+  hbars(document.getElementById('c-motivos'), list.map(o=>({k:o.k, label:cap(o.k), w:o.n, big:o.n, small:pct(o.n,reps.length)+'%', color:o.k==='MOTIVO NÃO INFORMADO'?'var(--lgray)':null})), 'var(--navy)', 'mot');
+  if(!reps.length) document.getElementById('c-motivos').innerHTML = emptyBox('Nenhuma reprovação no recorte.');
+}
+
+function renderEtapa(s){
+  const el=document.getElementById('c-etapa');
+  if(!s.rep){ el.innerHTML=emptyBox('Nenhuma reprovação no recorte.'); return; }
+  const it=[['REP_TEO','Prova teórica','Reprovou antes de dirigir',s.teo,'var(--navy)'],['REP_PRA','Teste prático','Passou na teórica, reprovou ao volante',s.pra,'var(--gold)']];
+  if(s.out) it.push(['REP_OUT','Documentação / outros','CNH, pontuação, EAR',s.out,'var(--gray)']);
+  el.innerHTML = `<div class="stats">` + it.map(([k,nm,ds,n,c])=>`
+    <div class="stat click${FILTERS.res===k?' sel':''}" style="--c:${c}" data-k="${k}"><div class="nm">${nm}</div><div class="n">${n}<small>${pct(n,s.rep)}%</small></div><div class="ds">${ds}</div></div>`).join('') + `</div>`;
+  el.querySelectorAll('.stat').forEach(d=>d.addEventListener('click',()=>setFilter('res', d.dataset.k)));
+}
+
+function renderTaxaPor(elId, dim){
+  const g=groupBy(filtered(dim),dim);
+  const list=Object.keys(g).filter(k=>k!=='—').map(k=>({k, s:stats(g[k])})).filter(o=>o.s.real>0).sort((a,b)=>b.s.taxa-a.s.taxa || b.s.real-a.s.real);
+  hbars(document.getElementById(elId), list.map(o=>({k:o.k, label:o.k, note:`${o.s.aprov} de ${o.s.real} aprovados`, w:o.s.taxa, big:o.s.taxa+'%', small:''})), 'var(--green)', dim);
+}
+
+function renderInsights(rows, s, mesesAll){
+  const items=[];
+  const byMes=groupBy(filtered('mes'),'mes');
+  const ms=mesesAll.filter(m=>byMes[m] && stats(byMes[m]).real>0);
+  if(FILTERS.mes==='Todos' && ms.length>=2){
+    const a=stats(byMes[ms[ms.length-2]]), b=stats(byMes[ms[ms.length-1]]); const d=b.taxa-a.taxa;
+    items.push(`Aprovação em <b>${monthShort(ms[ms.length-1])}</b>: <b>${b.taxa}%</b>, ${d===0?'igual a':(Math.abs(d)+' p.p. '+(d>0?'acima de':'abaixo de'))} ${monthShort(ms[ms.length-2])}.`);
+  } else items.push(s.real ? `<b>${s.taxa}%</b> de aprovação: ${s.aprov} de ${s.real} testes realizados.` : 'Nenhum teste realizado no recorte.');
+  const reps=rows.filter(isRep);
+  const top=topMotivos(reps.filter(r=>r.motivo!=='MOTIVO NÃO INFORMADO'),1)[0];
+  items.push(top ? `Principal motivo: <b>${esc(top.k.toLowerCase())}</b>, ${pct(top.n,reps.length)}% das reprovações.` : 'Motivos de reprovação ainda não informados na planilha.');
+  if(s.rep){ const e = s.pra>s.teo ? ['prática',s.pra] : ['teórica',s.teo]; items.push(`A etapa <b>${e[0]}</b> reprova mais: <b>${e[1]} de ${s.rep}</b> reprovados.`); }
+  else items.push('Nenhuma reprovação no recorte.');
+  const fila=rows.filter(r=>r.esc==='AGUARDANDO TURMA').length;
+  if(s.nc) items.push(`<b>${s.nc} reprovados sem classificação</b> na planilha. Sem ela não dá para saber quem vai para a escolinha.`);
+  else items.push(s.aproveit ? `<b>${s.aproveit} aproveitáveis</b> para a escolinha, <b>${fila}</b> aguardando turma.` : 'Nenhum reprovado aproveitável no recorte.');
+  document.getElementById('insights-list').innerHTML = items.map(t=>`<div class="insight-item"><p>${t}</p></div>`).join('');
+}
+
+function renderCls(){
+  const el=document.getElementById('c-cls');
+  const reps=filtered('cls').filter(isRep);
+  if(!reps.length){ el.innerHTML=emptyBox('Nenhuma reprovação no recorte.'); return; }
+  const keys=CLS_ORDER.filter(k=>k!=='NC' || reps.some(r=>r.cls==='NC'));
+  const numCor={APROV:'var(--green-dk)',RUIM:'#B45309',MRUIM:'var(--red)',NC:'var(--ink-soft)'};
+  el.innerHTML = `<div class="stats">` + keys.map(k=>{
+    const n=reps.filter(r=>r.cls===k).length;
+    return `<div class="stat click${FILTERS.cls===k?' sel':''}" style="--c:${CLS[k].cor}" data-k="${k}"><div class="nm">${CLS[k].nome}</div><div class="n" style="color:${n?numCor[k]:'var(--ink-faint)'}">${n}<small>${pct(n,reps.length)}%</small></div><div class="ds">${CLS[k].desc}</div></div>`;
+  }).join('') + `</div>`;
+  el.querySelectorAll('.stat').forEach(d=>d.addEventListener('click',()=>setFilter('cls', d.dataset.k)));
+}
+
+function renderFunil(rows, s){
+  const el=document.getElementById('c-funil');
+  const ap=rows.filter(r=>r.cls==='APROV');
+  const iniciou=ap.filter(r=>['EM TREINAMENTO','APROVADO NO RETESTE','REPROVADO NO RETESTE','CONTRATADO'].includes(r.esc)).length;
+  const aprovRe=ap.filter(r=>['APROVADO NO RETESTE','CONTRATADO'].includes(r.esc)).length;
+  const contr=ap.filter(r=>r.esc==='CONTRATADO').length;
+  const steps=[['Reprovados',s.rep,'var(--navy)'],['Aproveitáveis',ap.length,'#B98A00'],['Iniciaram treino',iniciou,'#2F7D57'],['Aprovados no reteste',aprovRe,'var(--green)'],['Contratados',contr,'var(--green-dk)']];
+  if(!s.rep){ el.innerHTML=emptyBox('Nenhuma reprovação no recorte.'); return; }
+  const max=Math.max(1,steps[0][1]);
+  el.innerHTML = `<div class="fun">` + steps.map((st,i)=>{
+    const w=Math.max(st[1]/max*100, st[1]?10:0);
+    return `<div class="fun-row"><div class="fun-lbl">${st[0]}</div>
+      <div class="fun-track"><div class="fun-bar" style="width:${w.toFixed(1)}%;background:${st[2]}">${st[1]}</div></div>
+      <div class="fun-pct">${i? `<b>${pct(st[1],steps[i-1][1])}%</b> da etapa` : 'base'}</div></div>`;
+  }).join('') + `</div>`;
+}
+
+function renderTreinar(rows){
+  const el=document.getElementById('c-treinar');
+  const ap=rows.filter(r=>r.cls==='APROV');
+  if(!ap.length){ el.innerHTML = emptyBox('Nenhum reprovado classificado como aproveitável no recorte.'); return; }
+  hbars(el, topMotivos(ap,6).map(o=>({k:o.k, label:cap(o.k), w:o.n, big:o.n, small:pct(o.n,ap.length)+'%', color:o.k==='MOTIVO NÃO INFORMADO'?'var(--lgray)':null})), 'var(--green)', null);
+}
+
+function renderSituacao(rows){
+  const ap=rows.filter(r=>r.cls==='APROV');
+  const n = k => ap.filter(r=>k.includes(r.esc)).length;
+  const it=[
+    ['Aguardando turma','Esperando abrir turma', n(['AGUARDANDO TURMA']), 'var(--gold)'],
+    ['Em treinamento','Turma em andamento', n(['EM TREINAMENTO']), 'var(--navy)'],
+    ['Aprovados no reteste','Prontos para admissão', n(['APROVADO NO RETESTE']), 'var(--green)'],
+    ['Contratados','Admitidos após a escolinha', n(['CONTRATADO']), 'var(--green-dk)'],
+    ['Não seguiram','Desistiram ou reprovaram no reteste', n(['DESISTIU','REPROVADO NO RETESTE']), 'var(--red)']
+  ];
+  document.getElementById('c-sit').innerHTML = `<div class="sit-wrap">` + it.map(([nm,ds,v,c])=>`<div class="sit" style="--c:${c}"><div class="n">${v}</div><div class="nm">${nm}</div><div class="ds">${ds}</div></div>`).join('') +
+    `<div class="sit-cta"><p>Nomes, telefones e motivos de cada candidato ficam na aba Banco de Dados.</p><button class="btn-upload" id="goBanco">Ver candidatos da escolinha</button></div></div>`;
+  document.getElementById('goBanco').addEventListener('click',()=>{ CHIP='APROV'; renderBanco(); openTab('page-banco'); });
+}
+
+/* --- Banco de dados --- */
+const CHIPS = [
+  ['TODOS','Todos', r=>true],
+  ['APROVADO','Aprovados', r=>r.res==='APROVADO'],
+  ['REP','Reprovados', r=>isRep(r)],
+  ['FALTOU','Faltaram', r=>r.res==='FALTOU'],
+  ['APROV','Escolinha', r=>r.cls==='APROV'],
+  ['FILA','Aguardando turma', r=>r.esc==='AGUARDANDO TURMA']
+];
+function hl(text, terms){
+  if(!text) return '';
+  const raw=String(text);
+  if(!terms.length) return esc(raw);
+  const src=norm(raw);
+  if(src.length!==raw.length) return esc(raw);   // texto com espaços duplos: não destaca
+  for(const t of terms){
+    const i=src.indexOf(t);
+    if(i>=0) return esc(raw.slice(0,i))+'<mark>'+esc(raw.slice(i,i+t.length))+'</mark>'+esc(raw.slice(i+t.length));
+  }
+  return esc(raw);
+}
+function renderBanco(){
+  const base=filtered();
+  const terms=norm(BUSCA).split(' ').filter(Boolean);
+  const afterSearch=base.filter(r=>terms.every(t=>r.busca.includes(t)));
+  document.getElementById('chips').innerHTML = CHIPS.map(([k,l,fn])=>`<button class="chip${CHIP===k?' on':''}" data-k="${k}">${l}<span class="c">${afterSearch.filter(fn).length}</span></button>`).join('');
+  document.querySelectorAll('#chips .chip').forEach(b=>b.addEventListener('click',()=>{ CHIP=b.dataset.k; renderBanco(); }));
+  const fn=(CHIPS.find(c=>c[0]===CHIP)||CHIPS[0])[2];
+  const list=afterSearch.filter(fn).sort((a,b)=>b.data-a.data);
+  document.getElementById('tbCount').innerHTML = `<b>${list.length}</b> de ${RAW.length} registros`;
+  document.getElementById('buscaX').style.display = BUSCA ? 'block' : 'none';
+  const el=document.getElementById('tbl-banco');
+  if(!list.length){ el.innerHTML=emptyBox(BUSCA ? `Nada encontrado para “${esc(BUSCA)}”.` : 'Nenhum registro no recorte.'); return; }
+  const badgeRes = r => r.res==='APROVADO' ? '<span class="badge-tag badge-green">Aprovado</span>'
+    : r.res==='FALTOU' ? '<span class="badge-tag badge-gray">Faltou</span>'
+    : `<span class="badge-tag badge-navy">Reprov. ${r.res==='REP_TEO'?'teórica':(r.res==='REP_PRA'?'prática':'outros')}</span>`;
+  const dash='<span class="muted">—</span>';
+  el.innerHTML = `<table class="rsm"><thead><tr><th>Data</th><th>Candidato</th><th>Telefone</th><th>Função</th><th>PA</th><th>Avaliador</th><th class="num">Nota T.</th><th class="num">Nota P.</th><th>Resultado</th><th>Motivo</th><th>Classificação</th><th>Escolinha</th><th>Observações</th></tr></thead><tbody>` +
+    list.map(r=>`<tr><td class="nw">${fmtDate(r.data)}</td><td><b>${hl(r.cand,terms)}</b></td><td class="nw">${hl(r.tel,terms)||dash}</td><td>${hl(r.func,terms)}</td><td class="nw">${esc(r.pa)}</td><td>${hl(r.av,terms)}</td>
+      <td class="num">${fmt1(r.nt)}</td><td class="num">${fmt1(r.np)}</td><td>${badgeRes(r)}</td><td>${r.motivo?hl(r.motivo,terms):dash}</td>
+      <td>${r.cls?`<span class="badge-tag ${CLS[r.cls].badge}">${CLS[r.cls].nome}</span>`:dash}</td>
+      <td>${r.esc?`<span class="badge-tag ${ESC[r.esc]||'badge-gray'}">${esc(r.esc)}</span>`:dash}</td>
+      <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(r.obs)}">${r.obs?hl(r.obs,terms):dash}</td></tr>`).join('') + `</tbody></table>`;
+}
+
+/* ================= RELATÓRIO MENSAL EM PDF ================= */
+function buildReport(mes){
+  const scope = RAW.filter(r=>matches(r,['mes','res','mot','cls']));     // respeita função, PA e avaliador
+  const rows = scope.filter(r=>r.mes===mes);
+  const s = stats(rows);
+  const sa = stats(scope.filter(r=>r.mes===prevMonth(mes)));
+  const delta = (sa.real && s.real) ? s.taxa - sa.taxa : null;
+  const reps = rows.filter(isRep);
+  const ap = rows.filter(r=>r.cls==='APROV');
+  const filtros = ['func','pa','av'].filter(k=>FILTERS[k]!=='Todos').map(k=>FILTERS[k]);
+  const hoje = new Date(); const geradoEm = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+
+  const kpi=(l,v,sm,sub,c)=>`<div class="rp-kpi" style="--c:${c}"><div class="l">${l}</div><div class="v">${v}${sm!=null?`<small>${sm}</small>`:''}</div><div class="s">${sub}</div></div>`;
+  const line=(lbl,n,tot,c)=>`<div class="rp-line"><div><div>${esc(lbl)}</div><div class="t"><div style="width:${tot?(n/tot*100).toFixed(1):0}%;background:${c}"></div></div></div><b>${n}<small>${pct(n,tot)}%</small></b></div>`;
+  const vazio = t => `<div style="color:var(--ink-faint);font-size:11px">${t}</div>`;
+
+  const resKeys=RES_ORDER.filter(k=>rows.some(r=>r.res===k));
+  const resBox = s.total ? `<div class="rp-split">${resKeys.map(k=>`<div style="width:${(rows.filter(r=>r.res===k).length/s.total*100).toFixed(2)}%;background:${RES[k].cor}"></div>`).join('')}</div>` +
+      resKeys.map(k=>line(RES[k].nome, rows.filter(r=>r.res===k).length, s.total, RES[k].cor)).join('') : vazio('Sem testes no mês.');
+  const mot = topMotivos(reps,6);
+  const motBox = mot.length ? mot.map(o=>line(cap(o.k), o.n, reps.length, o.k==='MOTIVO NÃO INFORMADO'?'var(--lgray)':'var(--navy)')).join('') : vazio('Nenhuma reprovação no mês.');
+  const cnt = k => ap.filter(r=>k.includes(r.esc)).length;
+  const escBox = (s.rep ? CLS_ORDER.filter(k=>k!=='NC' || s.nc).map(k=>line(CLS[k].nome, reps.filter(r=>r.cls===k).length, reps.length, CLS[k].cor)).join('') : vazio('Nenhuma reprovação no mês.')) +
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto;">` +
+    [['Aguardando turma',cnt(['AGUARDANDO TURMA'])],['Em treinamento',cnt(['EM TREINAMENTO'])],['Aprovados no reteste',cnt(['APROVADO NO RETESTE'])],['Contratados',cnt(['CONTRATADO'])]]
+      .map(([l,v])=>`<div style="background:#F7F9F8;border-radius:5px;padding:7px 8px;"><div style="font-size:18px;font-weight:800;line-height:1">${v}</div><div style="font-size:8.5px;color:var(--ink-soft);margin-top:3px;font-weight:700;text-transform:uppercase">${l}</div></div>`).join('') + `</div>`;
+  const meses=uniq(scope.map(r=>r.mes)).sort().filter(m=>m<=mes).slice(-6);
+  const gm=groupBy(scope,'mes'); const mx=Math.max(1,...meses.map(m=>(gm[m]||[]).length));
+  const evo = `<div class="rp-mini">` + meses.map(m=>{ const st=stats(gm[m]||[]); const h=v=>(v/mx*100).toFixed(1)+'%';
+    return `<div class="c mc${m===mes?' cur':''}"><div style="font-size:10px;font-weight:800">${st.total}</div><div class="b"><div style="height:${h(st.falt)};background:var(--lgray)"></div><div style="height:${h(st.rep)};background:var(--navy)"></div><div style="height:${h(st.aprov)};background:var(--green)"></div></div><div class="ml">${monthShort(m)}</div><div class="mr">${st.real?st.taxa+'%':'—'}</div></div>`; }).join('') + `</div>
+    <div style="font-size:9px;color:var(--ink-faint)">Verde: aprovados · azul: reprovados · cinza: faltas. Percentual = taxa de aprovação.</div>`;
+
+  const notes=[];
+  notes.push(delta==null ? `<b>${s.taxa}%</b> de aprovação no mês (${s.aprov} de ${s.real} testes realizados).`
+    : `<b>${s.taxa}%</b> de aprovação, ${delta===0?'igual ao':(Math.abs(delta)+' p.p. '+(delta>0?'acima do':'abaixo do'))} mês anterior (${sa.taxa}%).`);
+  const tm = topMotivos(reps.filter(r=>r.motivo!=='MOTIVO NÃO INFORMADO'),1)[0];
+  notes.push(tm ? `Principal motivo de reprovação: <b>${esc(tm.k.toLowerCase())}</b> (${tm.n} de ${reps.length}).` : 'Motivos de reprovação não informados no mês.');
+  notes.push(s.nc ? `<b>${s.nc} reprovados</b> ainda sem classificação para a escolinha.` : `<b>${s.aproveit}</b> candidatos encaminháveis à escolinha neste mês.`);
+
+  document.getElementById('report').innerHTML = `
+    <div class="rp-head">
+      <div><div class="rp-eyebrow">CONSÓRCIO LIMPAGYN</div><div class="rp-title">Relatório Mensal · Testes de Condução</div>
+        <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Avaliação teórica e prática de motoristas &amp; Projeto Escolinha</div></div>
+      <div><div class="rp-month">${monthLong(mes)}</div><div class="rp-meta">Gerado em ${geradoEm}${filtros.length?' · Filtro: '+esc(filtros.join(', ')):''}</div></div>
+    </div>
+    <div class="rp-kpis">
+      ${kpi('Testes aplicados', s.total, null, `${s.real} realizados · ${s.falt} faltas`, 'var(--ink-soft)')}
+      ${kpi('Aprovados', s.aprov, s.taxa+'%', delta==null?'dos testes realizados':`${delta>0?'+':''}${delta} p.p. vs ${monthShort(prevMonth(mes))}`, 'var(--green)')}
+      ${kpi('Reprovados', s.rep, pct(s.rep,s.real)+'%', `${s.teo} teórica · ${s.pra} prática`, 'var(--navy)')}
+      ${kpi('Aproveitáveis escolinha', s.aproveit, pct(s.aproveit,s.rep)+'%', 'dos reprovados', 'var(--gold)')}
+      ${kpi('Nota média teórica', fmt1(s.nt), null, s.ntN?`${s.ntN} provas`:'não lançada', 'var(--green-dk)')}
+      ${kpi('Nota média prática', fmt1(s.np), null, s.npN?`${s.npN} testes`:'não lançada', 'var(--green-dk)')}
+    </div>
+    <div class="rp-grid">
+      <div class="rp-box"><h6>Resultado dos testes</h6>${resBox}</div>
+      <div class="rp-box"><h6>Principais motivos de reprovação</h6>${motBox}</div>
+      <div class="rp-box"><h6>Projeto Escolinha</h6>${escBox}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:14px;">
+      <div class="rp-box"><h6>Evolução · últimos meses</h6>${evo}</div>
+      <div class="rp-box" style="justify-content:center"><h6>Leitura do mês</h6><div class="rp-notes">${notes.map(n=>`<div>${n}</div>`).join('')}</div></div>
+    </div>
+    <div class="rp-foot"><span>Consórcio LimpaGyn – Controle de Testes de Condução e Projeto Escolinha</span><span>Detalhes por candidato: aba Banco de Dados do painel</span></div>`;
+}
+async function gerarPDF(){
+  const mes=document.getElementById('pdfMes').value;
+  if(!mes){ showStatus('Não há meses com dados para gerar o relatório.', 'err'); return; }
+  if(!window.html2canvas || !window.jspdf){ showStatus('Não consegui carregar o gerador de PDF. Verifique a conexão com a internet.', 'err'); return; }
+  const btn=document.getElementById('btnPdfGo'); btn.disabled=true; btn.textContent='Gerando...';
+  try{
+    buildReport(mes);
+    const el=document.getElementById('report');
+    const cv=await html2canvas(el,{scale:2, backgroundColor:'#ffffff', width:1123, height:794, windowWidth:1123, windowHeight:794, scrollX:0, scrollY:0,
+      onclone: doc=>{ doc.getElementById('report').style.left='0px'; }});
+    const pdf=new window.jspdf.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+    pdf.addImage(cv.toDataURL('image/jpeg',0.95),'JPEG',0,0,297,210);
+    const [y,m]=mes.split('-');
+    pdf.save(`Relatorio_Testes_Conducao_${MES_FULL[+m-1].normalize('NFD').replace(/[̀-ͯ]/g,'')}_${y}.pdf`);
+    document.getElementById('pdfPop').classList.remove('show');
+    showStatus(`Relatório de ${monthLong(mes)} gerado.`, 'ok');
+  }catch(err){ showStatus('Erro ao gerar o PDF: '+err.message, 'err'); }
+  btn.disabled=false; btn.textContent='Baixar PDF';
+}
+
+/* ================= EVENTOS ================= */
+function openTab(id){
+  document.querySelectorAll('.page-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===id));
+  document.querySelectorAll('.page-content').forEach(p=>p.classList.toggle('active', p.id===id));
+}
+document.querySelectorAll('.page-tab-btn').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.page)));
+Object.entries(SEL).forEach(([dim,id])=>document.getElementById(id).addEventListener('change',e=>{ FILTERS[dim]=e.target.value; renderAll(); }));
+document.getElementById('btnClearFilters').addEventListener('click', clearFilters);
+document.getElementById('btnRefresh').addEventListener('click', loadFromSheet);
+document.getElementById('btnFile').addEventListener('click', ()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) loadFromFile(e.target.files[0]); e.target.value=''; });
+document.getElementById('busca').addEventListener('input', e=>{ BUSCA=e.target.value; renderBanco(); });
+document.getElementById('buscaX').addEventListener('click', ()=>{ BUSCA=''; document.getElementById('busca').value=''; renderBanco(); document.getElementById('busca').focus(); });
+document.getElementById('btnPdf').addEventListener('click', e=>{ e.stopPropagation(); document.getElementById('pdfPop').classList.toggle('show'); });
+document.getElementById('pdfPop').addEventListener('click', e=>e.stopPropagation());
+document.addEventListener('click', ()=>document.getElementById('pdfPop').classList.remove('show'));
+document.getElementById('btnPdfGo').addEventListener('click', gerarPDF);
+
+// Inicialização
+applyData(DEMO_RECORDS.map(enrich).filter(Boolean), 'dados de exemplo');
+if(SHEET_CSV_URL) loadFromSheet();
+</script>
+
+</body>
+</html>
